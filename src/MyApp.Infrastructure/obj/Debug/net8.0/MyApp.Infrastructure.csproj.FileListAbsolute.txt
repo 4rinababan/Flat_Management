@@ -15,3 +15,4 @@ D:\Project\Densus88\new_app\src\MyApp.Infrastructure\obj\Debug\net8.0\refint\MyA
 D:\Project\Densus88\new_app\src\MyApp.Infrastructure\obj\Debug\net8.0\MyApp.Infrastructure.pdb
 D:\Project\Densus88\new_app\src\MyApp.Infrastructure\obj\Debug\net8.0\MyApp.Infrastructure.genruntimeconfig.cache
 D:\Project\Densus88\new_app\src\MyApp.Infrastructure\obj\Debug\net8.0\ref\MyApp.Infrastructure.dll
+D:\Project\Densus88\new_app\src\MyApp.Infrastructure\obj\Debug\net8.0\MyApp.Infrastructure.sourcelink.json

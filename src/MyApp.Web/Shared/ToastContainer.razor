@@ -1,0 +1,40 @@
+<!-- ToastContainer.razor -->
+<div class="fixed top-4 left-1/2 -translate-x-1/2 z-50 space-y-2">
+    @foreach (var toast in Toasts)
+    {
+        <div class="@GetToastClasses(toast.Type)">
+            @toast.Message
+        </div>
+    }
+</div>
+
+@code {
+    public class ToastMessage
+    {
+        public string Message { get; set; } = "";
+        public string Type { get; set; } = "info"; // success, error, info
+    }
+
+    private List<ToastMessage> Toasts = new();
+
+    public void ShowToast(string message, string type = "info")
+    {
+        var toast = new ToastMessage { Message = message, Type = type };
+        Toasts.Add(toast);
+        StateHasChanged();
+
+        // Auto dismiss after 3s
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            Toasts.Remove(toast);
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private string GetToastClasses(string type) => type switch
+    {
+        "success" => "bg-green-500 text-white px-4 py-2 rounded shadow-lg animate-fade-in",
+        "error" => "bg-red-500 text-white px-4 py-2 rounded shadow-lg animate-fade-in",
+        _ => "bg-gray-500 text-white px-4 py-2 rounded shadow-lg animate-fade-in",
+    };
+}

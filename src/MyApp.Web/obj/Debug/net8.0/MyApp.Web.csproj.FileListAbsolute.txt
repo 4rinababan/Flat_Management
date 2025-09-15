@@ -125,3 +125,12 @@ D:\Project\Densus88\new_app\src\MyApp.Web\obj\Debug\net8.0\refint\MyApp.Web.dll
 D:\Project\Densus88\new_app\src\MyApp.Web\obj\Debug\net8.0\MyApp.Web.pdb
 D:\Project\Densus88\new_app\src\MyApp.Web\obj\Debug\net8.0\MyApp.Web.genruntimeconfig.cache
 D:\Project\Densus88\new_app\src\MyApp.Web\obj\Debug\net8.0\ref\MyApp.Web.dll
+D:\Project\Densus88\new_app\src\MyApp.Web\obj\Debug\net8.0\MyApp.Web.sourcelink.json
+D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\Blazored.Toast.dll
+D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\Microsoft.AspNetCore.Authorization.dll
+D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\Microsoft.AspNetCore.Components.dll
+D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\Microsoft.AspNetCore.Components.Forms.dll
+D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\Microsoft.AspNetCore.Components.Web.dll
+D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\Microsoft.AspNetCore.Metadata.dll
+D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\Microsoft.JSInterop.dll
+D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\BCrypt.Net-Next.dll

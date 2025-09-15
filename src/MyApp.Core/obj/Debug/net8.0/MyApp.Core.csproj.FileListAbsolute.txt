@@ -9,3 +9,4 @@ D:\Project\Densus88\new_app\src\MyApp.Core\obj\Debug\net8.0\MyApp.Core.dll
 D:\Project\Densus88\new_app\src\MyApp.Core\obj\Debug\net8.0\refint\MyApp.Core.dll
 D:\Project\Densus88\new_app\src\MyApp.Core\obj\Debug\net8.0\MyApp.Core.pdb
 D:\Project\Densus88\new_app\src\MyApp.Core\obj\Debug\net8.0\ref\MyApp.Core.dll
+D:\Project\Densus88\new_app\src\MyApp.Core\obj\Debug\net8.0\MyApp.Core.sourcelink.json
