@@ -57,6 +57,7 @@ builder.Services.AddScoped<IOccupantRepository, OccupantRepository>();
 
 builder.Services.AddSingleton<RedisService>();
 builder.Services.AddBlazoredToast();
+builder.Services.AddHttpContextAccessor();
 
 
 // Add services to the container.

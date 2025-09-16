@@ -3,9 +3,9 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy csproj and restore
-COPY ["MyApp.Web/MyApp.Web.csproj", "MyApp.Web/"]
-COPY ["MyApp.Core/MyApp.Core.csproj", "MyApp.Core/"]
-COPY ["MyApp.Infrastructure/MyApp.Infrastructure.csproj", "MyApp.Infrastructure/"]
+COPY ["src/MyApp.Web/MyApp.Web.csproj", "MyApp.Web/"]
+COPY ["src/MyApp.Core/MyApp.Core.csproj", "MyApp.Core/"]
+COPY ["src/MyApp.Infrastructure/MyApp.Infrastructure.csproj", "MyApp.Infrastructure/"]
 RUN dotnet restore "MyApp.Web/MyApp.Web.csproj"
 
 # Copy everything else and build
