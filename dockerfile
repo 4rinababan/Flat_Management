@@ -8,10 +8,12 @@ COPY ["src/MyApp.Core/MyApp.Core.csproj", "MyApp.Core/"]
 COPY ["src/MyApp.Infrastructure/MyApp.Infrastructure.csproj", "MyApp.Infrastructure/"]
 RUN dotnet restore "MyApp.Web/MyApp.Web.csproj"
 
-# Copy everything else and build
+# Copy everything else
 COPY . .
 WORKDIR "/src/MyApp.Web"
-RUN dotnet publish -c Release -o /app/publish
+
+# Publish (fix untuk Blazor Server / minimal hosting)
+RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
