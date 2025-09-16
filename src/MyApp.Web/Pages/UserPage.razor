@@ -130,7 +130,11 @@
         <div>@SelectedUser.Position?.Name</div>
 
         <div class="font-semibold">Status</div>
-        <div>@(SelectedUser.IsActive ? "Active" : "Inactive")</div>
+        <div>
+                    <span class="@GetStatusClass(SelectedUser.IsActive)">
+                                    @(SelectedUser.IsActive ? "Active" : "Inactive")
+                                </span>
+                    </div>
 
         <div class="font-semibold">Created Date</div>
         <div>@SelectedUser.CreatedAt.ToString("dddd, dd MMMM yyyy")</div>
@@ -146,6 +150,7 @@
                 <input class="w-full mb-2 px-3 py-2 border rounded" placeholder="Address" @bind="SelectedUser.Address" />
                 <input class="w-full mb-2 px-3 py-2 border rounded" placeholder="Password" type="password" @bind="Password" />
 
+                <div class="font-semibold">Position</div>
                 <select class="w-full mb-2 px-3 py-2 border rounded" @bind="SelectedUser.PositionId">
                     <option value="">Select Position</option>
                     @foreach (var pos in Positions)
@@ -154,6 +159,7 @@
                     }
                 </select>
 
+                <div class="font-semibold">Role</div>
                 <select class="w-full mb-2 px-3 py-2 border rounded" @bind="SelectedUser.RoleId">
                     <option value="">Select Role</option>
                     @foreach (var role in Roles)
@@ -162,6 +168,7 @@
                     }
                 </select>
 
+                <div class="font-semibold">User Type</div>
                 <select class="w-full mb-2 px-3 py-2 border rounded" @bind="SelectedUser.UserTypeId">
                     <option value="">Select User Type</option>
                     @foreach (var type in UserTypes)
@@ -170,6 +177,7 @@
                     }
                 </select>
 
+                <div class="font-semibold">Active</div>
                 <label class="flex items-center space-x-2 mb-2">
                     <input type="checkbox" @bind="SelectedUser.IsActive" />
                     <span>Active</span>

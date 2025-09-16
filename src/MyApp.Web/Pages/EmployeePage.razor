@@ -11,23 +11,32 @@
 <div class="p-6 space-y-6">
 
     <!-- Card Summary -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-    <div class="bg-purple-800 text-white p-4 rounded-2xl shadow-md">
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-6">
+    <div class="bg-purple-800 text-white p-6 rounded-2xl shadow-md">
         <h2 class="text-lg font-semibold">Total Employees</h2>
         <p class="text-2xl font-bold">@TotalEmployees</p>
     </div>
 
-    <div class="bg-green-600 text-white p-4 rounded-2xl shadow-md">
+    <div class="bg-green-400 text-white p-6 rounded-2xl shadow-md">
         <h2 class="text-lg font-semibold">New Employee</h2>
         <p class="text-2xl font-bold">@NewEmployees</p>
     </div>
 
-    <div class="bg-red-600 text-white p-4 rounded-2xl shadow-md">
+    <div class="bg-green-600 text-white p-6 rounded-2xl shadow-md">
+            <h2 class="text-lg font-semibold">Active</h2>
+            <p class="text-2xl font-bold">@Employees?.Count(u => u.IsActive)</p>
+        </div>
+        <div class="bg-red-600 text-white p-6 rounded-2xl shadow-md">
+            <h2 class="text-lg font-semibold">Inactive</h2>
+            <p class="text-2xl font-bold">@Employees?.Count(u => !u.IsActive)</p>
+        </div>
+
+    <div class="bg-yellow-500 text-white p-6 rounded-2xl shadow-md">
         <h2 class="text-lg font-semibold">Employee / Years</h2>
         <p class="text-2xl font-bold">@TotalYearsWorked</p>
     </div>
 
-    <div class="bg-blue-600 text-white p-4 rounded-2xl shadow-md">
+    <div class="bg-blue-600 text-white p-6 rounded-2xl shadow-md">
         <h2 class="text-lg font-semibold">Average Years</h2>
         <p class="text-2xl font-bold">@AverageYears.ToString("F1")</p> 
     </div>
@@ -51,6 +60,8 @@
                     <th class="px-4 py-2">Rank</th>
                     <th class="px-4 py-2">Phone</th>
                     <th class="px-4 py-2">Email</th>
+                    <th class="px-4 py-2">Position</th>
+                    <th class="px-4 py-2">Active / InActive</th>
                     <th class="px-4 py-2">Status</th>
                     <th class="px-4 py-2">Actions</th>
                 </tr>
@@ -65,6 +76,12 @@
                             <td class="px-4 py-2">@Employee.Rank?.Name</td>
                             <td class="px-4 py-2">@Employee.Phone</td>
                             <td class="px-4 py-2">@Employee.Email</td>
+                            <td class="px-4 py-2">@Employee.Position?.Name</td>
+                            <td class="px-4 py-2">
+                                <span class="@GetStatusClass(Employee.IsActive)">
+                                    @(Employee.IsActive ? "Active" : "Inactive")
+                                </span>
+                            </td>
                             <td class="px-4 py-2">@Employee.Status</td>
                             <td class="px-4 py-2 whitespace-nowrap space-x-2">
                                 <button class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-sm" @onclick="() => ShowDetail(Employee)">Detail</button>
@@ -119,11 +136,22 @@
                     <div class="font-semibold">Phone</div>
                     <div>@SelectedEmployee.Phone</div>
 
+                    <div class="font-semibold">Position</div>
+                    <div>@SelectedEmployee.Position?.Name</div>
+
+                    <div class="font-semibold">Active / InActive</div>
+                    <div>
+                    <span class="@GetStatusClass(SelectedEmployee.IsActive)">
+                                    @(SelectedEmployee.IsActive ? "Active" : "Inactive")
+                                </span>
+                    </div>
+
                     <div class="font-semibold">Address</div>
                     <div>@SelectedEmployee.Address</div>
 
                     <div class="font-semibold">Status</div>
                     <div>@SelectedEmployee.Status</div>
+                    
 
                     <div class="font-semibold">Rank</div>
                     <div>@SelectedEmployee.Rank.Name</div>
@@ -157,6 +185,15 @@
 
                     <input class="w-full px-3 py-2 border rounded" placeholder="Phone" @bind="SelectedEmployee.Phone" />
 
+                    <div class="font-semibold">Position</div>
+                    <select class="w-full mb-2 px-3 py-2 border rounded" @bind="SelectedEmployee.PositionId">
+                    <option value="">Select Position</option>
+                    @foreach (var pos in Positions)
+                    {
+                        <option value="@pos.Id">@pos.Name</option>
+                    }
+                </select>
+
                     <div class="font-semibold">Status</div>
                     <select class="w-full px-3 py-2 border rounded" @bind="SelectedEmployee.Status">
                         <option value="">Select Status</option>
@@ -179,6 +216,11 @@
                     <div class="font-semibold">Join Date</div>
                     <input class="w-full px-3 py-2 border rounded" type="date" @bind="SelectedEmployee.JoinDate" />
 
+                    <div class="font-semibold">Active</div>
+                    <label class="flex items-center space-x-2 mb-2">
+                        <input type="checkbox" @bind="SelectedEmployee.IsActive" />
+                        <span>Active</span>
+                    </label>
                     <div class="font-semibold">Photo</div>
                     <InputFile OnChange="OnFileChange" class="w-full" />
                 </div>

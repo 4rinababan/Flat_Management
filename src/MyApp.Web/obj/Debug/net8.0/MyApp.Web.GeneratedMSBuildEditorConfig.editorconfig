@@ -64,6 +64,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTWFzdGVyLURhdGFcVXNlclR5cGVQYWdlLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/Project/Densus88/new_app/src/MyApp.Web/Pages/OccupantPage.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcT2NjdXBhbnRQYWdlLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/Project/Densus88/new_app/src/MyApp.Web/Pages/Register.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUmVnaXN0ZXIucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 

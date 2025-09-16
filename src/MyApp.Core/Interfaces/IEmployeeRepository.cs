@@ -9,4 +9,5 @@ public interface IEmployeeRepository
     Task AddAsync(Employee Employee);
     Task UpdateAsync(Employee Employee);
     Task DeleteAsync(int id);
+    Task<Employee?> GetByNRPAsync(string nrp);
 }

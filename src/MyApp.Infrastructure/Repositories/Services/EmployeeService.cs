@@ -39,4 +39,12 @@ public class EmployeeRepository : IEmployeeRepository
             await _context.SaveChangesAsync();
         }
     }
+
+    public async Task<Employee?> GetByNRPAsync(string nrp)
+    {
+        return await _context.Employees
+            .Include(e => e.Position)
+            .Include(e => e.Rank)
+            .FirstOrDefaultAsync(e => e.NRP == nrp);
+    }
 }
