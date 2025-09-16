@@ -1,19 +1,17 @@
 ﻿@inherits LayoutComponentBase
+@using MyApp.Web.Shared.Components
 
-<PageTitle>MyApp.Web</PageTitle>
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+
+@inject NavigationManager NavManager
+
+<div class="min-h-screen flex bg-gray-50">
+    <Sidebar />
+
+    <!-- Main Content Area -->
+
+    <div class="flex-1 p-8">
+        @Body
     </div>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
 </div>

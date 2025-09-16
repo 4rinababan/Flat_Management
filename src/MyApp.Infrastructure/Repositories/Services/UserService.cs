@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MyApp.Core.Entities;
+using MyApp.Core.Interfaces;
 using MyApp.Infrastructure.Data;
 
 public class UserRepository : IUserRepository

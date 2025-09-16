@@ -1,7 +1,9 @@
+using Blazored.Toast;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using MyApp.Core.Interfaces;
 using MyApp.Infrastructure.Data;
 using MyApp.Infrastructure.Identity;
 using MyApp.Web.Data;
@@ -42,7 +44,17 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IPositionRepository, PositionRepository>();
+builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<IUserTypeRepository, UserTypeRepository>();
+builder.Services.AddScoped<IRankRepository, RankRepository>();
+builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+builder.Services.AddScoped<IRoomRepository, RoomRepository>();
+builder.Services.AddScoped<IOccupantRepository, OccupantRepository>();
+
 builder.Services.AddSingleton<RedisService>();
+builder.Services.AddBlazoredToast();
+
 
 // Add services to the container.
 builder.Services.AddRazorPages();
