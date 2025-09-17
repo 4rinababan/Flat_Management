@@ -4,7 +4,6 @@ D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\package-lock.json
 D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\package.json
 D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\MyApp.Web.staticwebassets.runtime.json
 D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\MyApp.Web.staticwebassets.endpoints.json
-D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\MyApp.Web.exe
 D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\MyApp.Web.deps.json
 D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\MyApp.Web.runtimeconfig.json
 D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\MyApp.Web.dll
@@ -134,4 +133,3 @@ D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\Microsoft.AspNetCore.
 D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\Microsoft.AspNetCore.Metadata.dll
 D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\Microsoft.JSInterop.dll
 D:\Project\Densus88\new_app\src\MyApp.Web\bin\Debug\net8.0\BCrypt.Net-Next.dll
-D:\Project\Densus88\new_app\src\MyApp.Web\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt

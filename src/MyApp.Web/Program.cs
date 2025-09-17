@@ -67,6 +67,15 @@ builder.Services.AddSingleton<WeatherForecastService>();
 
 var app = builder.Build();
 
+// --- Auto-migrate section ---
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    // Buat database kalau belum ada & jalankan semua migration yang belum diaplikasikan
+    db.Database.Migrate();
+}
+// --- end auto-migrate ---
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

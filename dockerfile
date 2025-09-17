@@ -1,22 +1,21 @@
-# Build stage
+# build stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
 
-COPY ["src/MyApp.Web/MyApp.Web.csproj", "MyApp.Web/"]
-COPY ["src/MyApp.Core/MyApp.Core.csproj", "MyApp.Core/"]
-COPY ["src/MyApp.Infrastructure/MyApp.Infrastructure.csproj", "MyApp.Infrastructure/"]
-RUN dotnet restore "MyApp.Web/MyApp.Web.csproj"
+# jadikan root solution sebagai workdir
+WORKDIR /app
 
+# copy semua file ke /app (tidak membuat src dobel)
 COPY . .
-WORKDIR "/src/MyApp.Web"
 
-# Publish tanpa runtime dan self-contained
-RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
+# restore solution
+RUN dotnet restore MyApp.sln
 
-# Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+# publish project web
+RUN dotnet publish src/MyApp.Web/MyApp.Web.csproj -c Release -o /app/publish /p:UseAppHost=false
+
+# runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
-
-EXPOSE 80
+ENV ASPNETCORE_ENVIRONMENT=development
 ENTRYPOINT ["dotnet", "MyApp.Web.dll"]

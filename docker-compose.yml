@@ -1,17 +1,17 @@
+version: "3.9"
+
 services:
   web:
     build: .
-    container_name: flat_management_web
-    ports:
-      - "5000:80" # bisa diakses localhost:5000
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+    ports:
+      - "5000:8080"
     environment:
       - DOTNET_RUNNING_IN_CONTAINER=true
-      - DOTNET_URLS=http://+:80
+      - DOTNET_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=server=db;database=FMS_DB;user=root;password=secret@Bcd123
-      - ConnectionStrings__Redis=redis:6379
 
   db:
     image: mysql:8.0
@@ -20,16 +20,15 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: secret@Bcd123
       MYSQL_DATABASE: FMS_DB
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     ports:
       - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
-
-  redis:
-    image: redis:7
-    container_name: flat_management_redis
-    ports:
-      - "6379:6379"
 
 volumes:
   db_data:

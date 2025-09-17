@@ -44,7 +44,13 @@
                 else if (!RoomCategorys.Any())
                 {
                     <tr>
-                        <td colspan="5" class="text-center p-4 text-gray-500 italic">Data not found</td>
+                        <td colspan="5" class="p-8">
+                            <div class="flex flex-col items-center justify-center text-gray-400">
+                                <object data="assets/images/no-data.svg" type="image/svg+xml"
+                                    class="h-32 w-32 mb-4"></object>
+                                <div>No Data</div>
+                            </div>
+                        </td>
                     </tr>
                 }
                 else
