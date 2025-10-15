@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "zoYuC6AqZzY=",
+  "dgSpecHash": "EaP49licNqQ=",
   "success": true,
-  "projectFilePath": "d:\\Projects\\Densus88\\Flat_Management\\src\\MyApp.Web\\MyApp.Web.csproj",
+  "projectFilePath": "D:\\Projects\\Densus88\\new_app\\src\\MyApp.Web\\MyApp.Web.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\LENOVO\\.nuget\\packages\\apexcharts.blazor\\0.9.6-alpha\\apexcharts.blazor.0.9.6-alpha.nupkg.sha512",
     "C:\\Users\\LENOVO\\.nuget\\packages\\bcrypt.net-next\\4.0.3\\bcrypt.net-next.4.0.3.nupkg.sha512",
