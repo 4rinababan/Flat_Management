@@ -1,0 +1,127 @@
+@page "/login"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject CustomAuthenticationStateProvider AuthProvider
+
+@layout AuthLayout
+
+@inject ToastService ToastService
+
+@using System.Net.Http.Json
+@using System.Security.Claims
+
+<section class="bg-gradient-to-b from-red-700 to-black dark:bg-gray-900">
+    <div class="flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
+        <a href="#" class="flex items-center mb-6 text-2xl font-semibold text-gray-900 dark:text-white">
+            <img class="w-64 h-64 mr-2" src="/assets/images/owl-logo.png" alt="logo">
+        </a>
+        <div class="w-full bg-gradient-to-b from-red-700 to-black rounded-lg shadow dark:border md:mt-0 sm:max-w-md xl:p-0 dark:bg-gray-800 dark:border-white">
+            <div class="p-6 space-y-4 md:space-y-6 sm:p-8">
+                <h1 class="text-xl text-white font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
+                    Sign in to your account
+                </h1>
+
+                <EditForm Model="loginModel" OnValidSubmit="LoginAsync" class="space-y-4 md:space-y-6">
+                    <div>
+                        <label for="username" class="block mb-2 text-sm font-medium text-white">Your Username</label>
+                        <InputText @bind-Value="loginModel.UserName" id="username" type="text"
+                                   class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                   placeholder="Username" />
+                    </div>
+                    
+                    <div>
+                        <label for="password" class="block mb-2 text-sm font-medium text-white">Password</label>
+                        <div class="relative">
+                            <InputText @bind-Value="loginModel.Password" id="password"
+                                       type="@(_showPassword ? "text" : "password")"
+                                       class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 pr-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                       placeholder="Password" />
+                            
+                            <button type="button" @onclick="TogglePassword" aria-label="Toggle password visibility"
+                                    class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-black transition-colors duration-200">
+                                @if (_showPassword)
+                                {
+                                    <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L6.228 6.228" />
+                                    </svg>
+                                }
+                                else
+                                {
+                                    <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5s-8.573-3.007-9.963-7.178z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                }
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit"
+                            class="w-full p-2.5 mt-5 text-white bg-yellow-500 hover:bg-green-500 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg  px-5 py-2.5 text-center transition-colors duration-200">
+                        Sign in
+                    </button>
+
+                    @if (!string.IsNullOrEmpty(ErrorMessage))
+                    {
+                        <div class="text-sm font-light text-red-500 mt-2">@ErrorMessage</div>
+                    }
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private LoginRequest loginModel = new();
+    private string ErrorMessage = "";
+    private bool _showPassword = false;
+
+
+    private async Task LoginAsync()
+    {
+        ErrorMessage = "";
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/auth/login", loginModel);
+            if (response.IsSuccessStatusCode)
+            {
+                // buat ClaimsPrincipal dari username
+                var identity = new ClaimsIdentity(new[]
+                {
+                    new Claim(ClaimTypes.Name, loginModel.UserName)
+                }, "apiauth_type");
+
+                var user = new ClaimsPrincipal(identity);
+
+                // beri tahu Blazor bahwa user sudah login
+                await AuthProvider.NotifyUserAuthentication(loginModel.UserName);
+
+                @* AuthProvider.NotifyUserAuthentication(loginModel.UserName); *@
+                ToastService?.ShowSuccess($"Login success , Welcome : {loginModel.UserName}");
+                // redirect ke home
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                ToastService?.ShowWarning(content);
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            ToastService?.ShowError(ErrorMessage);
+        }
+    }
+
+    private void TogglePassword()
+    {
+        _showPassword = !_showPassword;
+    }
+
+    public class LoginRequest
+    {
+        public string UserName { get; set; } = "";
+        public string Password { get; set; } = "";
+        public bool RememberMe { get; set; } = false;
+    }
+}

@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  web:
+    image: myapp-web
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+    expose:
+      - "8080"
+    volumes:
+      - dpkeys:/root/.aspnet/DataProtection-Keys
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    container_name: myapp-db
+    environment:
+      MYSQL_ROOT_PASSWORD: Passw0rd
+      MYSQL_DATABASE: FMS_DB
+      MYSQL_USER: fms_user
+      MYSQL_PASSWORD: fms_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+
+  nginx:
+    image: nginx:alpine
+    container_name: myapp-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d:ro   # mount folder bukan file
+    depends_on:
+      - web
+
+volumes:
+  dbdata:
+  dpkeys:

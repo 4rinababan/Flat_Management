@@ -15,12 +15,31 @@ public class OccupantRepository : IOccupantRepository
     public async Task<Occupant?> GetByIdAsync(int id) =>
         await _context.Occupants.FindAsync(id);
 
+    public async Task<Occupant?> GetByEmployeeIdAsync(int employeeId)
+    {
+        return await _context.Occupants
+            .Include(o => o.Employee)
+                .ThenInclude(e => e.Position)
+            .Include(o => o.Employee)
+                .ThenInclude(e => e.Rank)
+            .Include(o => o.Room)
+                .ThenInclude(r => r.Building)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(o => o.EmployeeId == employeeId);
+    }
+
+
+    // OccupantRepository.cs
     public async Task<List<Occupant>> GetAllAsync()
     {
         return await _context.Occupants
             .Include(o => o.Employee)
+                .ThenInclude(e => e.Position)
+            .Include(o => o.Employee)
+                .ThenInclude(e => e.Rank)
             .Include(o => o.Room)
-            .AsNoTracking()  // <-- ini penting
+                .ThenInclude(e => e.Building)
+            .AsNoTracking()
             .ToListAsync();
     }
 
@@ -34,6 +53,19 @@ public class OccupantRepository : IOccupantRepository
     public async Task UpdateAsync(Occupant Occupant)
     {
         _context.Occupants.Update(Occupant);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task UpdateDocumentAsync(int id, byte[] docData, string docName, string contentType)
+    {
+        var occ = await _context.Occupants.FindAsync(id);
+        if (occ == null) return;
+
+        occ.DocumentData = docData;
+        occ.DocumentName = docName;
+        occ.DocumentContentType = contentType;
+        occ.UpdatedAt = DateTime.UtcNow;
+
         await _context.SaveChangesAsync();
     }
 

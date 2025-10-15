@@ -5,91 +5,134 @@
 @inject IEmployeeRepository EmployeeService
 @inject IPositionRepository PositionService
 @inject IRankRepository RankService
+@inject IFileService FileService
+@inject ToastService ToastService
 
 
-
-<div class="p-6 space-y-6">
-
-    <!-- Card Summary -->
-    <div class="grid grid-cols-1 md:grid-cols-6 gap-6">
-    <div class="bg-purple-800 text-white p-6 rounded-2xl shadow-md">
-        <h2 class="text-lg font-semibold">Total Employees</h2>
-        <p class="text-2xl font-bold">@TotalEmployees</p>
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
+    <div class="bg-gradient-to-br from-purple-600 to-purple-900 text-white p-5 rounded-2xl shadow-lg flex items-center gap-4">
+        <div class="bg-white/20 rounded-full p-3"><i class="fas fa-users fa-2x"></i></div>
+        <div>
+            <h2 class="text-lg font-semibold">Total Employees</h2>
+            <p class="text-2xl font-bold">@TotalEmployees</p>
+        </div>
     </div>
-
-    <div class="bg-green-400 text-white p-6 rounded-2xl shadow-md">
-        <h2 class="text-lg font-semibold">New Employee</h2>
-        <p class="text-2xl font-bold">@NewEmployees</p>
+    <div class="bg-gradient-to-br from-green-400 to-green-700 text-white p-5 rounded-2xl shadow-lg flex items-center gap-4">
+        <div class="bg-white/20 rounded-full p-3"><i class="fas fa-user-plus fa-2x"></i></div>
+        <div>
+            <h2 class="text-lg font-semibold">New Employee</h2>
+            <p class="text-2xl font-bold">@NewEmployees</p>
+        </div>
     </div>
-
-    <div class="bg-green-600 text-white p-6 rounded-2xl shadow-md">
+    <div class="bg-gradient-to-br from-green-600 to-green-900 text-white p-5 rounded-2xl shadow-lg flex items-center gap-4">
+        <div class="bg-white/20 rounded-full p-3"><i class="fas fa-check-circle fa-2x"></i></div>
+        <div>
             <h2 class="text-lg font-semibold">Active</h2>
             <p class="text-2xl font-bold">@Employees?.Count(u => u.IsActive)</p>
         </div>
-        <div class="bg-red-600 text-white p-6 rounded-2xl shadow-md">
+    </div>
+    <div class="bg-gradient-to-br from-red-600 to-red-900 text-white p-5 rounded-2xl shadow-lg flex items-center gap-4">
+        <div class="bg-white/20 rounded-full p-3"><i class="fas fa-user-slash fa-2x"></i></div>
+        <div>
             <h2 class="text-lg font-semibold">Inactive</h2>
             <p class="text-2xl font-bold">@Employees?.Count(u => !u.IsActive)</p>
         </div>
-
-    <div class="bg-yellow-500 text-white p-6 rounded-2xl shadow-md">
-        <h2 class="text-lg font-semibold">Employee / Years</h2>
-        <p class="text-2xl font-bold">@TotalYearsWorked</p>
     </div>
-
-    <div class="bg-blue-600 text-white p-6 rounded-2xl shadow-md">
-        <h2 class="text-lg font-semibold">Average Years</h2>
-        <p class="text-2xl font-bold">@AverageYears.ToString("F1")</p> 
+    <div class="bg-gradient-to-br from-yellow-500 to-yellow-900 text-white p-5 rounded-2xl shadow-lg flex items-center gap-4">
+        <div class="bg-white/20 rounded-full p-3"><i class="fas fa-calendar-alt fa-2x"></i></div>
+        <div>
+            <h2 class="text-lg font-semibold">Employee / Years</h2>
+            <p class="text-2xl font-bold">@TotalYearsWorked</p>
+        </div>
+    </div>
+    <div class="bg-gradient-to-br from-blue-600 to-blue-900 text-white p-5 rounded-2xl shadow-lg flex items-center gap-4">
+        <div class="bg-white/20 rounded-full p-3"><i class="fas fa-chart-line fa-2x"></i></div>
+        <div>
+            <h2 class="text-lg font-semibold">Average Years</h2>
+            <p class="text-2xl font-bold">@AverageYears.ToString("F1")</p>
+        </div>
     </div>
 </div>
 
-    <!-- Search & Add -->
-    <div class="flex justify-between items-center">
-        <input type="text" placeholder="Search Employee..." @bind="SearchTerm"
-            class="px-4 py-2 w-1/3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500" />
-        <button @onclick="AddEmployee" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition">
-            + Add Employee
-        </button>
+<div class="bg-white p-6 rounded-2xl shadow-xl border border-gray-100">
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 border-b pb-4">
+        <div>
+            <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight">Employee Management</h2>
+            <p class="text-gray-500 mt-1">Manage Employee, Add Employee and Edit Employee Data</p>
+        </div>
+        <div class="flex items-center space-x-3 mt-4 md:mt-0 w-full md:w-auto">
+            <div class="relative w-full md:w-64">
+                <input value="@SearchTerm" @oninput="e => SearchTerm = e.Value?.ToString() ?? string.Empty"
+                    class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                    placeholder="Search Employee..." />
+                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            </div>
+            <button class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+                @onclick="AddEmployee">
+                <i class="fas fa-plus"></i> Add Employee
+            </button>
+        </div>
     </div>
-
-    <!-- Employee Table -->
-    <div class="overflow-x-auto mt-4">
-        <table class="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
-            <thead class="bg-gray-100">
+    <div class="overflow-x-auto rounded-xl shadow-md border border-gray-200">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gradient-to-b from-red-700 to-black">
                 <tr>
-                    <th class="px-4 py-2">Employee name</th>
-                    <th class="px-4 py-2">Rank</th>
-                    <th class="px-4 py-2">Phone</th>
-                    <th class="px-4 py-2">Email</th>
-                    <th class="px-4 py-2">Position</th>
-                    <th class="px-4 py-2">Active / InActive</th>
-                    <th class="px-4 py-2">Status</th>
-                    <th class="px-4 py-2">Actions</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Rank</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Phone</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Email</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Position</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Active / InActive</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="bg-white divide-y divide-gray-200">
                 @if (FilteredEmployees != null)
                 {
                     @foreach (var Employee in FilteredEmployees)
                     {
-                        <tr class="border-b hover:bg-gray-50">
-                            <td class="px-4 py-2">@Employee.Name</td>
-                            <td class="px-4 py-2">@Employee.Rank?.Name</td>
-                            <td class="px-4 py-2">@Employee.Phone</td>
-                            <td class="px-4 py-2">@Employee.Email</td>
-                            <td class="px-4 py-2">@Employee.Position?.Name</td>
-                            <td class="px-4 py-2">
-                                <span class="@GetStatusClass(Employee.IsActive)">
-                                    @(Employee.IsActive ? "Active" : "Inactive")
-                                </span>
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">@Employee.Name</div>
                             </td>
-                            <td class="px-4 py-2">@Employee.Status</td>
-                            <td class="px-4 py-2 whitespace-nowrap space-x-2">
-                                <button class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-sm" @onclick="() => ShowDetail(Employee)">Detail</button>
-                                <button class="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm" @onclick="() => EditEmployee(Employee)">Edit</button>
-                                <button class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm" @onclick="() => ConfirmDelete(Employee.Id, Employee.Name)">Delete</button>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-700">@Employee.Rank?.Name</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-700">@Employee.Phone</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-700">@Employee.Email</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-700">@Employee.Position?.Name</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="@GetStatusClass(Employee.IsActive)">@((Employee.IsActive) ? "Active" : "Inactive")</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-700">@Employee.Status</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                <button class="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-100 transition"
+                                    @onclick="() => ShowDetail(Employee)"><i class="fas fa-eye mr-1"></i> Detail</button>
+                                <button class="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-100 transition"
+                                    @onclick="() => EditEmployee(Employee)"><i class="fas fa-edit mr-1"></i> Edit</button>
+                                <button class="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition"
+                                    @onclick="() => ConfirmDelete(Employee.Id, Employee.Name)"><i class="fas fa-trash-alt mr-1"></i> Delete</button>
                             </td>
                         </tr>
                     }
+                }
+                else {
+                    <tr>
+                        <td colspan="8" class="py-12 text-center text-gray-400">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <p class="text-lg">No Employees found.</p>
+                        </td>
+                    </tr>
                 }
             </tbody>
         </table>
@@ -100,22 +143,23 @@
 @if (ShowModal)
 {
     <div class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-lg">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-3xl shadow-lg">
             <h2 class="text-xl font-bold mb-4">@ModalTitle</h2>
 
             @if (ModalMode == "Detail")
             {
                 <!-- Detail View -->
                 <div class="flex flex-col items-center mb-4">
-                    @if (SelectedEmployee.PhotoData != null)
+                    @* Photo *@
+                    @if (PhotoByEmployee.TryGetValue(SelectedEmployee.Id, out var photos) && photos.Any())
                     {
-                        var base64 = Convert.ToBase64String(SelectedEmployee.PhotoData);
-                        <img src="data:image/png;base64,@base64" class="w-40 h-40 rounded-full mb-4" />
+                        <img src="@($"/secure-files/{photos.First().Path}")"
+                            class="w-40 h-40 rounded-full mx-auto mb-4 object-cover" />
                     }
                     else
                     {
-                        <div class="w-32 h-32 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-                            <span class="text-gray-500">No Photo</span>
+                        <div class="w-40 h-40 rounded-full bg-gray-200 mx-auto mb-4 flex items-center justify-center text-gray-500">
+                            No Photo
                         </div>
                     }
                 </div>
@@ -161,70 +205,116 @@
 
                     <div class="font-semibold">Period</div>
                     <div>@GetPeriod(SelectedEmployee.JoinDate)</div>
+
+                    @* Documents *@
+                    @if (DocsByEmployee.TryGetValue(SelectedEmployee.Id, out var docs) && docs.Any())
+                    {
+                        <div class="mt-4">
+                            <h4 class="font-semibold mb-2">Documents</h4>
+                            <ul class="list-disc ml-5 space-y-1">
+                                @foreach (var d in docs)
+                                {
+                                    <li>
+                                        <a href="@($"/secure-files/{d.Path}")" target="_blank"
+                                        class="text-blue-600 hover:underline">@d.FileName</a>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
                 </div>
             }
             else
             {
-                <!-- Add / Edit Form -->
-                <div class="space-y-2">
-                    <input class="w-full px-3 py-2 border rounded" placeholder="Employee Name" @bind="SelectedEmployee.Name" />
+                <!-- Grid 2 kolom untuk form -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <input class="w-full px-3 py-2 border rounded" placeholder="Employee Name"
+                               @bind="SelectedEmployee.Name" />
 
-                    <input class="w-full px-3 py-2 border rounded" placeholder="NRP" @bind="SelectedEmployee.NRP" />
+                        <input class="w-full px-3 py-2 border rounded" placeholder="NRP"
+                               @bind="SelectedEmployee.NRP" />
 
-                    <div class="font-semibold">Gender</div>
-                    <select class="w-full px-3 py-2 border rounded" @bind="SelectedEmployee.Gender">
-                        <option value="">Select Gender</option>
-                        <option value="Pria">Pria</option>
-                        <option value="Wanita">Wanita</option>
-                    </select>
+                        <div class="font-semibold">Gender</div>
+                        <select class="w-full px-3 py-2 border rounded"
+                                @bind="SelectedEmployee.Gender">
+                            <option value="">Select Gender</option>
+                            <option value="Pria">Pria</option>
+                            <option value="Wanita">Wanita</option>
+                        </select>
 
-                    <div class="font-semibold">Date of Birth</div>
-                    <input class="w-full px-3 py-2 border rounded" type="date" @bind="SelectedEmployee.DateOfBirth" />
+                        <div class="font-semibold">Date of Birth</div>
+                        <input class="w-full px-3 py-2 border rounded" type="date"
+                               @bind="SelectedEmployee.DateOfBirth" />
 
-                    <input class="w-full px-3 py-2 border rounded" placeholder="Email" @bind="SelectedEmployee.Email" />
+                        <input class="w-full px-3 py-2 border rounded" placeholder="Email"
+                               @bind="SelectedEmployee.Email" />
 
-                    <input class="w-full px-3 py-2 border rounded" placeholder="Phone" @bind="SelectedEmployee.Phone" />
+                        <input class="w-full px-3 py-2 border rounded" placeholder="Phone"
+                               @bind="SelectedEmployee.Phone" />
 
-                    <div class="font-semibold">Position</div>
-                    <select class="w-full mb-2 px-3 py-2 border rounded" @bind="SelectedEmployee.PositionId">
-                    <option value="">Select Position</option>
-                    @foreach (var pos in Positions)
-                    {
-                        <option value="@pos.Id">@pos.Name</option>
-                    }
-                </select>
+                        <div class="font-semibold">Position</div>
+                        <select class="w-full px-3 py-2 border rounded"
+                                @bind="SelectedEmployee.PositionId">
+                            <option value="">Select Position</option>
+                            @foreach (var pos in Positions)
+                            {
+                                <option value="@pos.Id">@pos.Name</option>
+                            }
+                        </select>
 
-                    <div class="font-semibold">Status</div>
-                    <select class="w-full px-3 py-2 border rounded" @bind="SelectedEmployee.Status">
-                        <option value="">Select Status</option>
-                        <option value="Anggota Polri">Anggota Polri</option>
-                        <option value="Tenaga Ahli">Tenaga Ahli</option>
-                        <option value="Sipil">Sipil</option>
-                    </select>
+                        <div class="font-semibold">Status</div>
+                        <select class="w-full px-3 py-2 border rounded"
+                                @bind="SelectedEmployee.Status">
+                            <option value="">Select Status</option>
+                            <option value="Anggota Polri">Anggota Polri</option>
+                            <option value="Tenaga Ahli">Tenaga Ahli</option>
+                            <option value="Sipil">Sipil</option>
+                        </select>
 
-                    <div class="font-semibold">Rank</div>
-                    <select class="w-full px-3 py-2 border rounded" @bind="SelectedEmployee.RankId">
-                        <option value="">Select Rank</option>
-                        @foreach (var rank in Ranks)
-                        {
-                            <option value="@rank.Id">@rank.Name</option>
-                        }
-                    </select>
+                        <div class="font-semibold">Rank</div>
+                        <select class="w-full px-3 py-2 border rounded"
+                                @bind="SelectedEmployee.RankId">
+                            <option value="">Select Rank</option>
+                            @foreach (var rank in Ranks)
+                            {
+                                <option value="@rank.Id">@rank.Name</option>
+                            }
+                        </select>
+                    </div>
 
-                    <input class="w-full px-3 py-2 border rounded" placeholder="Address" @bind="SelectedEmployee.Address" />
+                    <div class="space-y-2">
+                        <InputTextArea @bind-Value="SelectedEmployee.Address"
+                                    class="w-full px-3 py-2 border rounded"
+                                    placeholder="Address" />
 
-                    <div class="font-semibold">Join Date</div>
-                    <input class="w-full px-3 py-2 border rounded" type="date" @bind="SelectedEmployee.JoinDate" />
+                        <div class="font-semibold">Join Date</div>
+                        <input class="w-full px-3 py-2 border rounded" type="date"
+                               @bind="SelectedEmployee.JoinDate" />
 
-                    <div class="font-semibold">Active</div>
-                    <label class="flex items-center space-x-2 mb-2">
-                        <input type="checkbox" @bind="SelectedEmployee.IsActive" />
-                        <span>Active</span>
-                    </label>
-                    <div class="font-semibold">Photo</div>
-                    <InputFile OnChange="OnFileChange" class="w-full" />
+                        <div class="font-semibold">Active</div>
+                        <label class="flex items-center space-x-2 mb-2">
+                            <input type="checkbox" @bind="SelectedEmployee.IsActive" />
+                            <span>Active</span>
+                        </label>
+
+                        <!-- Upload Photo -->
+                        <div class="mb-4">
+                            <label class="block font-semibold mb-1">Photo</label>
+                            <InputFile OnChange="OnPhotoSelected" accept="image/*" />
+                            <p class="text-xs text-gray-500 text-red-500">Max 2 MB,Image *.jpg,.jpeg,.png </p>
+                        </div>
+
+                         <!-- Upload Dokumen PDF -->
+                        <div class="mb-4">
+                            <label class="block font-semibold mb-1">Documents (.PDF) (Optional)</label>
+                            <InputFile OnChange="OnDocsSelected" multiple accept="application/pdf" />
+                            <p class="text-xs text-gray-500 text-red-500">Max 10 MB ,PDF Only</p>
+                        </div>
+                    </div>
                 </div>
             }
+
 
             <div class="flex justify-end space-x-2 mt-4">
                 <button class="px-4 py-2 bg-red-600 text-white rounded" @onclick="CloseModal">Close</button>
@@ -257,13 +347,9 @@
 
 @code {
 
-    Employee SelectedDateEmployee = new Employee
-    {
-        DateOfBirth = new DateOnly(2000, 1, 1),
-        JoinDate = new DateOnly(2000, 1, 1)
-    };
+    private IReadOnlyList<IBrowserFile>? PendingUploads;
+    @* private void OnFilesSelected(InputFileChangeEventArgs e) => PendingUploads = e.GetMultipleFiles(); *@
     private ToastContainer? toastContainer;
-
     private List<Employee> Employees = new();
     private List<Position> Positions = new();
     private List<Rank> Ranks = new();
@@ -273,10 +359,33 @@
     private string ModalMode = "";
     private Employee SelectedEmployee = new();
     private string Password = "";
-
     private bool ShowConfirmModal = false;
     private string ConfirmMessage = "";
     private int EmployeeIdToDelete;
+
+    // list file milik employee
+    private Dictionary<int, List<FileUpload>> FilesByEmployee = new();
+
+    // untuk preview image
+    private bool ShowImagePreview = false;
+    private string PreviewImagePath = "";
+
+    // Upload buffer
+    private IBrowserFile? PendingPhoto;
+    private IReadOnlyList<IBrowserFile>? PendingDocs;
+
+    // Dictionaries untuk file
+    private Dictionary<int, List<FileUpload>> PhotoByEmployee = new();
+    private Dictionary<int, List<FileUpload>> DocsByEmployee = new();
+
+    private void OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        // hanya image/pdf
+        PendingUploads = e.GetMultipleFiles()
+                          .Where(f => f.ContentType.StartsWith("image/")
+                                   || f.ContentType == "application/pdf")
+                          .ToList();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -284,8 +393,39 @@
         Positions = await PositionService.GetAllAsync();
         Ranks = await RankService.GetAllAsync();
 
+        // Load photo
+        var allPhotos = await FileService.GetFilesByCategoryAsync("EmployeePhoto");
+        PhotoByEmployee = allPhotos
+            .GroupBy(f => f.OwnerId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Load documents
+        var allDocs = await FileService.GetFilesByCategoryAsync("EmployeeDocs");
+        DocsByEmployee = allDocs
+            .GroupBy(f => f.OwnerId)
+            .ToDictionary(g => g.Key, g => g.ToList());
     }
 
+    private void OnPhotoSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file.ContentType.StartsWith("image/"))
+            PendingPhoto = file;
+        else
+            ToastService.ShowWarning("Photo File Ext. Not Allowed!");
+    }
+
+    private void OnDocsSelected(InputFileChangeEventArgs e)
+    {
+        var files = e.GetMultipleFiles()
+                     .Where(f => f.ContentType == "application/pdf")
+                     .ToList();
+        if (files.Any())
+            PendingDocs = files;
+        else
+            ToastService.ShowSuccess("Only PDF Allowed!");
+    }
+    
     private IEnumerable<Employee> FilteredEmployees => Employees
         .Where(u => string.IsNullOrWhiteSpace(SearchTerm) || u.Name.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase));
 
@@ -299,7 +439,6 @@
         ModalMode = "Detail";
         ShowModal = true;
     }
-
     private void AddEmployee()
     {
         SelectedEmployee = new Employee
@@ -312,10 +451,8 @@
         ShowModal = true;
     }
 
-     private int TotalEmployees => Employees?.Count() ?? 0;
-
+    private int TotalEmployees => Employees?.Count() ?? 0;
     private int NewEmployees => Employees?.Count(u => u.JoinDate >= DateOnly.FromDateTime(DateTime.Now.AddYears(-1))) ?? 0;
-
     private int TotalYearsWorked => Employees?.Sum(u => 
         {
             var join = u.JoinDate.ToDateTime(TimeOnly.MinValue);
@@ -327,8 +464,6 @@
         }) ?? 0;
 
     private double AverageYears => TotalEmployees > 0 ? (double)TotalYearsWorked / TotalEmployees : 0;
-
-
     private void EditEmployee(Employee Employee)
     {
         SelectedEmployee = Employee;
@@ -336,17 +471,7 @@
         ModalMode = "Edit";
         ShowModal = true;
     }
-
     private void CloseModal() => ShowModal = false;
-
-    private async Task OnFileChange(InputFileChangeEventArgs e)
-    {
-        var file = e.File;
-        var buffer = new byte[file.Size];
-        await file.OpenReadStream(10_000_000).ReadAsync(buffer);
-        SelectedEmployee.PhotoData = buffer;
-    }
-
     private void ConfirmDelete(int id, string name)
     {
         EmployeeIdToDelete = id;
@@ -361,9 +486,8 @@
         await EmployeeService.DeleteAsync(EmployeeIdToDelete);
         Employees = await EmployeeService.GetAllAsync();
         ShowConfirmModal = false;
-        toastContainer?.ShowToast("Employee berhasil dihapus!", "success");
+        ToastService.ShowInfo("Employee Deleted!");
     }
-
     private string GetPeriod(DateOnly joinDate)
     {
         var start = joinDate.ToDateTime(TimeOnly.MinValue);
@@ -390,30 +514,44 @@
         return $"{years} tahun {months} bulan {days} hari";
     }
 
-    
-
     private async Task SaveEmployee()
     {
         try
         {
-
             if (ModalMode == "Add")
-            {
                 await EmployeeService.AddAsync(SelectedEmployee);
-                toastContainer?.ShowToast("Employee berhasil ditambahkan!", "success");
-            }
             else if (ModalMode == "Edit")
-            {
                 await EmployeeService.UpdateAsync(SelectedEmployee);
-                toastContainer?.ShowToast("Employee berhasil diperbarui!", "success");
-            }
+
+             // Simpan foto
+        if (PendingPhoto != null)
+            await FileService.SaveFileAsync(PendingPhoto, "EmployeePhoto", SelectedEmployee.Id);
+
+        // Simpan dokumen
+        if (PendingDocs?.Count > 0)
+        {
+            foreach (var doc in PendingDocs)
+                await FileService.SaveFileAsync(doc, "EmployeeDocs", SelectedEmployee.Id);
+        }
 
             Employees = await EmployeeService.GetAllAsync();
+
+            // refresh file dictionary
+            var allPhotos = await FileService.GetFilesByCategoryAsync("EmployeePhoto");
+            PhotoByEmployee = allPhotos
+                .GroupBy(f => f.OwnerId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var allDocs = await FileService.GetFilesByCategoryAsync("EmployeeDocs");
+            DocsByEmployee = allDocs
+                .GroupBy(f => f.OwnerId)
+                .ToDictionary(g => g.Key, g => g.ToList());
             CloseModal();
+            ToastService.ShowSuccess("Employee Saved!");
         }
         catch (Exception ex)
         {
-            toastContainer?.ShowToast($"Error: {ex.Message}", "error");
+            ToastService.ShowError($"Error: {ex.Message}");
         }
     }
 }
