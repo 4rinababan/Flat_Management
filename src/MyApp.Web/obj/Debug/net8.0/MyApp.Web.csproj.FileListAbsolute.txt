@@ -318,4 +318,3 @@ D:\Projects\Densus88\new_app\src\MyApp.Web\obj\Debug\net8.0\refint\MyApp.Web.dll
 D:\Projects\Densus88\new_app\src\MyApp.Web\obj\Debug\net8.0\MyApp.Web.pdb
 D:\Projects\Densus88\new_app\src\MyApp.Web\obj\Debug\net8.0\MyApp.Web.genruntimeconfig.cache
 D:\Projects\Densus88\new_app\src\MyApp.Web\obj\Debug\net8.0\ref\MyApp.Web.dll
-D:\Projects\Densus88\new_app\src\MyApp.Web\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
