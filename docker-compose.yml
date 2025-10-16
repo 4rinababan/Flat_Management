@@ -11,14 +11,14 @@ services:
     environment:
       - DOTNET_RUNNING_IN_CONTAINER=true
       - DOTNET_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=server=db;database=FMS_DB;user=root;password=secret@Bcd123
+      - ConnectionStrings__DefaultConnection=server=db;database=FMS_DB;user=root;password=Passw0rd
 
   db:
     image: mysql:8.0
     container_name: flat_management_db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: secret@Bcd123
+      MYSQL_ROOT_PASSWORD: Passw0rd
       MYSQL_DATABASE: FMS_DB
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
