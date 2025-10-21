@@ -16,12 +16,15 @@ namespace MyApp.Core.Entities
         public int PositionId { get; set; }
         public Position Position { get; set; } = null!;
         public string Address { get; set; } = string.Empty;
+
         public string Phone { get; set; } = string.Empty;
 
+        public Card Card { get; set; } = new Card();
+
+        public List<Room> Room { get; set; } = new List<Room>();
         public DateOnly JoinDate { get; set; }
         public byte[]? PhotoData { get; set; }
         public bool IsActive { get; set; }
-
         public string CreatedBy { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

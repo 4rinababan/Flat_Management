@@ -1,310 +1,460 @@
-@page "/access-control"
+@page "/access-control/handle-locks"
 @using System.Text.Json
 @inject DeviceService DeviceService
 @inject IJSRuntime JS
+@inject ToastService ToastService
 
-<h3 class="text-2xl font-bold mb-6">Access Control - Handle Section</h3>
+<h3 class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-100">Access Control</h3>
+
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 border-b pb-4">
+        <div>
+            <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight">Handle Lock Management</h2>
+            <p class="text-gray-500 mt-1">Manage Lock Property, Maintenance and Status.</p>
+        </div>
+        <div class="flex items-center space-x-3 mt-4 md:mt-0 w-full md:w-auto">
+            <div class="relative w-full md:w-64">
+                <input value="@searchTerm" oninput="OnSearchChanged"
+       class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+       placeholder="Search Name, Code or Building..." />
+                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            </div>
+        </div>
+    </div>
+
+
 
 @if (devices == null)
 {
-    <p>Loading devices...</p>
+    <div class="flex justify-center py-10">
+        <div class="animate-spin h-8 w-8 border-4 border-blue-400 border-t-transparent rounded-full"></div>
+    </div>
 }
-else if (devices.Count == 0)
+else if (!filteredDevices.Any())
 {
-    <p>No devices found.</p>
+    <p class="text-gray-500">No devices found.</p>
 }
 else
 {
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        @foreach (var device in devices)
+    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-5">
+        @foreach (var device in pagedDevices)
         {
-            var cardBg = device.ElectricQuantity < 20 
-                ? "bg-gradient-to-br from-red-200 via-red-100 to-red-50 dark:from-red-800 dark:via-red-700 dark:to-red-600"
-                : "bg-gradient-to-br from-green-100 via-green-50 to-green-50 dark:from-gray-800 dark:via-gray-700 dark:to-gray-600";
+            var cardBg = device.ElectricQuantity < 20
+                ? "bg-gray-700 dark:bg-gray-900"
+                : "bg-gradient-to-b from-red-700 to-black dark:from-red-900 dark:to-gray-900";
 
-            <div class="@cardBg border rounded-xl shadow-md hover:shadow-xl transition p-4 flex flex-col items-center w-full sm:w-80">
+            <div class="@cardBg border rounded-2xl shadow-lg hover:shadow-2xl hover:scale-[1.03] transition-all duration-200 ease-out p-4 relative flex flex-col items-center text-center text-white">
 
-                <img src="assets/images/smart-lock.png" alt="Smart Lock" class="w-20 h-20 mb-4"/>
+                <!-- Setting Icon -->
+                <button class="absolute top-2 right-2 hover:text-yellow-400 transition-transform hover:rotate-90 duration-300"
+                        @onclick="() => OpenSettingsModal(device)">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                </button>
 
-                <h4 class="text-lg font-semibold mb-2 text-center">@device.LockAlias</h4>
-                <div class="flex justify-end w-full">
-                    <button class="text-gray-500 hover:text-gray-700" @onclick="() => OpenSettingsModal(device.LockId)">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2-1.343-2-3-2z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.4 15a1.65 1.65 0 010 3.3H4.6a1.65 1.65 0 010-3.3h14.8z" />
-                        </svg>
+                <img src="assets/images/smart-lock.png" alt="Smart Lock" class="w-14 h-14 mb-3 opacity-90"/>
+
+                <h4 class="text-sm font-semibold truncate w-full">@device.LockAlias</h4>
+                <p class="text-xs opacity-80 mb-2">ID: @device.LockId</p>
+
+                <div class="flex items-center gap-1 text-xs mb-3">
+                    🔋 <span>@device.ElectricQuantity%</span>
+                    <span class="text-gray-400">|</span>
+                    
+                    🗝️ 
+                    <span class="flex items-center gap-1">
+                        <span>@device.NoKeyPwd</span>
+                        <button class="text-gray-500 hover:text-gray-700" @onclick="() => CopyToClipboard(device.NoKeyPwd)" title="Copy">
+                            📋
+                        </button>
+                    </span>
+                </div>
+
+                <!-- Cards & Fingerprint -->
+                <div class="flex justify-center gap-3 text-sm font-medium mb-3">
+                    <div class="flex items-center gap-1 bg-white/30 rounded-xl px-2 py-1 shadow-sm">
+                        🪪 <span>@(cards?.Count(c => c.LockId == device.LockId) ?? 0)</span>
+                    </div>
+                    <div class="flex items-center gap-1 bg-white/30 rounded-xl px-2 py-1 shadow-sm">
+                        ☝️ <span>@(fingerprints?.Count(f => f.LockId == device.LockId) ?? 0)</span>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 gap-2 w-full mb-2">
+                    <button class="flex items-center justify-center gap-1 bg-green-600 hover:bg-green-500 text-white py-2 rounded-xl text-sm font-semibold shadow transition"
+                            @onclick="() => UnlockDevice(device.LockId)">
+                        🔓 <span>Unlock</span>
                     </button>
-                </div>
-                <p class="text-sm text-gray-500 mb-2"><strong>Lock ID:</strong> @device.LockId</p>
 
-                <!-- Battery & Passkey -->
-                <div class="grid grid-cols-2 gap-4 mb-2 w-full text-sm">
-                    <div class="flex items-center">
-                        <svg class="h-5 w-5 text-yellow-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7H7v10h6V7zM7 7h6V5H7v2z" />
-                        </svg>
-                        Battery: @device.ElectricQuantity%
-                    </div>
-                    <div class="flex items-center">
-                        <svg class="h-5 w-5 text-gray-700 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 11-4 0 2 2 0 014 0zM7 11h10v10H7V11z" />
-                        </svg>
-                        Passkey: @device.NoKeyPwd
-                    </div>
-                </div>
-
-                <!-- Card & Fingerprint Count -->
-                <div class="grid grid-cols-2 gap-4 mb-4 w-full text-sm">
-                    <div class="flex items-center">
-                        <svg class="h-5 w-5 text-blue-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-3-3v6M4 6h16v12H4V6z" />
-                        </svg>
-                        Card: @(cards?.Count(c => c.LockId == device.LockId) ?? 0)
-                    </div>
-                    <div class="flex items-center">
-                        <svg class="h-5 w-5 text-purple-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c1.5 0 3-1.5 3-3s-1.5-3-3-3-3 1.5-3 3 1.5 3 3 3zM5 21v-2a4 4 0 014-4h6a4 4 0 014 4v2" />
-                        </svg>
-                        Fingerprint: @(fingerprints?.Count(f => f.LockId == device.LockId) ?? 0)
-                    </div>
-                </div>
-
-                <!-- Lock/Unlock Buttons -->
-                <div class="flex gap-2 mb-2">
-                    <button class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition" @onclick="() => UnlockDevice(device.LockId)">
-                        Unlock
+                    <button class="flex items-center justify-center gap-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-xl text-sm font-semibold shadow transition"
+                            @onclick="() => LockDevice(device.LockId)">
+                        🔒 <span>Lock</span>
                     </button>
-                    <button class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" @onclick="() => LockDevice(device.LockId)">
-                        Lock
-                    </button>
-                </div>
 
-                <!-- Add Card / Fingerprint Buttons -->
-                <div class="flex gap-2">
-                    <button class="flex items-center gap-1 bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition"
+                    <button class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-xl text-sm font-semibold shadow transition col-span-2"
                             @onclick="() => OpenAddCardModal(device.LockId)">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Card
+                        <i class="fa-solid fa-plus text-xs"></i>
+                        <span>Add Card</span>
                     </button>
-                    <button class="flex items-center gap-1 bg-purple-500 text-white px-3 py-2 rounded-lg hover:bg-purple-600 transition"
-                            @onclick="() => OpenAddFingerprintModal(device.LockId)">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 12c2 0 4-2 4-4s-2-4-4-4-4 2-4 4 2 4 4 4zM12 14v6" />
-                        </svg>
-                        Add Finger
+
+                    <button class="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl text-sm font-semibold shadow transition col-span-2"
+                            @onclick="() => OpenRecordsModal(device.LockId)">
+                        📜 <span>Records</span>
                     </button>
                 </div>
             </div>
         }
     </div>
+
+    <!-- Pagination -->
+    <div class="flex justify-center mt-6 gap-3">
+        <button class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition 
+                    disabled:opacity-50 disabled:bg-gray-400" 
+                @onclick="PrevPage" disabled="@(_currentPage == 1)">
+            Prev
+        </button>
+
+        <span class="px-3 py-2 text-gray-700">Page @_currentPage of @_totalPages</span>
+
+        <button class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition 
+                    disabled:opacity-50 disabled:bg-gray-400" 
+                @onclick="NextPage" disabled="@(_currentPage == _totalPages)">
+            Next
+        </button>
+    </div>
+
 }
 
-<!-- Modal Add Card -->
+<!-- Add Card Modal -->
 @if (showAddCardModal)
 {
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-96">
-            <h4 class="font-bold mb-4">Add Card for Lock @modalLockId</h4>
-            <div class="flex flex-col gap-2">
-                <input class="border rounded px-2 py-1" placeholder="Card Name" @bind="newCardName"/>
-                <input class="border rounded px-2 py-1" placeholder="Card Number" @bind="newCardNumber"/>
-                <input type="number" class="border rounded px-2 py-1" placeholder="Valid Days" @bind="newCardValidDays"/>
-                <label class="flex items-center gap-2 mt-1">
-                    <input type="checkbox" @bind="usePeriod"/>
-                    Use Start/End Date Period
-                </label>
-                @if (usePeriod)
-                {
-                    <input type="datetime-local" class="border rounded px-2 py-1" @bind="cardStart"/>
-                    <input type="datetime-local" class="border rounded px-2 py-1" @bind="cardEnd"/>
-                }
-            </div>
-            <div class="flex justify-end gap-2 mt-4">
-                <button class="bg-gray-400 text-white px-4 py-2 rounded-lg" @onclick="CloseAddCardModal">Cancel</button>
-                <button class="bg-blue-500 text-white px-4 py-2 rounded-lg" @onclick="AddCardAsync">Add</button>
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 w-96 shadow-2xl animate-fadeIn">
+            <h3 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-100">Add New Card</h3>
+
+            <input type="text" @bind="newCardName"
+                   class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 mb-3 dark:bg-gray-700 dark:text-white"
+                   placeholder="Card Name / Alias" />
+
+            <input type="text" @bind="newCardNumber"
+                   class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 mb-3 dark:bg-gray-700 dark:text-white"
+                   placeholder="Card Number" />
+
+            <input type="number" @bind="validDays"
+                   class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 mb-4 dark:bg-gray-700 dark:text-white"
+                   placeholder="Valid Days (default 30)" min="1" />
+
+            <div class="flex justify-end gap-2">
+                <button class="px-4 py-2 bg-gray-300 dark:bg-gray-700 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition"
+                        @onclick="CloseAddCardModal">Cancel</button>
+
+                <button class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow transition"
+                        @onclick="AddCard">Add Card</button>
             </div>
         </div>
     </div>
 }
 
-<!-- Modal Add Fingerprint -->
-@if (showAddFingerprintModal)
+<!-- Records Modal -->
+@if (showRecordsModal)
 {
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-96">
-            <h4 class="font-bold mb-4">Add Fingerprint for Lock @modalLockId</h4>
-            <div class="flex flex-col gap-2">
-                <input class="border rounded px-2 py-1" placeholder="Fingerprint Number" @bind="newFingerprintNumber"/>
-                <input type="number" class="border rounded px-2 py-1" placeholder="Fingerprint Type" @bind="newFingerprintType"/>
-                <input class="border rounded px-2 py-1" placeholder="Fingerprint Name" @bind="newFingerprintName"/>
-                <label class="flex items-center gap-2 mt-1">
-                    <input type="checkbox" @bind="useFingerprintPeriod"/>
-                    Use Start/End Date Period
-                </label>
-                @if (useFingerprintPeriod)
-                {
-                    <input type="datetime-local" class="border rounded px-2 py-1" @bind="fingerStart"/>
-                    <input type="datetime-local" class="border rounded px-2 py-1" @bind="fingerEnd"/>
-                }
-            </div>
-            <div class="flex justify-end gap-2 mt-4">
-                <button class="bg-gray-400 text-white px-4 py-2 rounded-lg" @onclick="CloseAddFingerprintModal">Cancel</button>
-                <button class="bg-purple-500 text-white px-4 py-2 rounded-lg" @onclick="AddFingerprintAsync">Add</button>
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 w-11/12 max-w-4xl shadow-2xl animate-fadeIn overflow-auto max-h-[80vh]">
+            <h3 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-100">Lock Records - ID: @selectedRecordLockId</h3>
+
+            <table class="min-w-full table-auto border border-gray-300 dark:border-gray-700 text-sm text-left">
+                <thead class="bg-gray-200 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-3 py-2 border">Type</th>
+                        <th class="px-3 py-2 border">User</th>
+                        <th class="px-3 py-2 border">Access Method</th>
+                        <th class="px-3 py-2 border">Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (lockRecords == null || !lockRecords.Any())
+                    {
+                        <tr>
+                            <td colspan="4" class="px-3 py-2 border text-center text-gray-500">No records found.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var record in lockRecords)
+                        {
+                            <tr class="hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <td class="px-3 py-2 border">@record.RecordType</td>
+                                <td class="px-3 py-2 border">@record.Username</td>
+                                <td class="px-3 py-2 border">@GetAccessTypeMeaning(record.RecordType)</td>
+                                <td class="px-3 py-2 border">@record.LockDate?.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+
+            <div class="flex justify-end mt-4">
+                <button class="px-4 py-2 bg-gray-300 dark:bg-gray-700 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition"
+                        @onclick="CloseRecordsModal">Close</button>
             </div>
         </div>
     </div>
 }
 
-@if (showSettingsModal)
+@if (_copied)
 {
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-96">
-            <h4 class="font-bold mb-4">Lock Settings - @settingsLockId</h4>
-
-            <div class="flex flex-col gap-2 text-sm">
-                <p><strong>Tamper Alert:</strong> @(tamperAlertValue == 1 ? "On" : "Off")</p>
-                <p><strong>Privacy Lock:</strong> @(privacyLockValue == 1 ? "On" : "Off")</p>
-                <p><strong>Open Direction:</strong> @(openDirectionValue == 1 ? "Left Open" : "Right Open")</p>
-            </div>
-
-            <div class="flex justify-end gap-2 mt-4">
-                <button class="bg-gray-400 text-white px-4 py-2 rounded-lg" @onclick="CloseSettingsModal">Close</button>
-            </div>
-        </div>
+    <div class="absolute bg-gray-800 text-white px-2 py-1 rounded shadow-md text-xs"
+         style="top:@_yPx; left:@_xPx;">
+        Copied!
     </div>
 }
 
+<AccessControlSettingsModal @ref="settingsModal" OnUpdated="ReloadDevices" />
 
 @code {
+
+    private bool _copied = false;
+    private string _xPx = "0px";
+    private string _yPx = "0px";
+    [Parameter] public EventCallback OnUpdated { get; set; }
+    
     private List<DeviceDto>? devices;
-    private List<ICCardDto>? cards;
-    private List<FingerprintDto>? fingerprints;
-    private long copiedLockId = 0;
-    // Settings modal
-    private bool showSettingsModal = false;
-    private long settingsLockId;
-    private int tamperAlertValue;
-    private int privacyLockValue;
-    private int openDirectionValue;
+    private List<DeviceDto> filteredDevices = new();
+    private List<DeviceDto> pagedDevices = new();
+    private List<ICCardDto> cards = new();
+    private List<FingerprintDto> fingerprints = new();
 
+    private int _currentPage = 1;
+    private int _pageSize = 16;
+    private int _totalPages = 1;
+    private string _searchTerm  = "";
+
+    // Add Card modal
     private bool showAddCardModal = false;
-    private bool showAddFingerprintModal = false;
-    private long modalLockId;
-
-    // Card input
+    private long selectedLockId;
     private string newCardName = "";
     private string newCardNumber = "";
-    private int newCardValidDays = 30;
-    private bool usePeriod = false;
-    private DateTime cardStart = DateTime.Now;
-    private DateTime cardEnd = DateTime.Now.AddYears(1);
+    private int validDays = 30;
 
-    // Fingerprint input
-    private string newFingerprintNumber = "";
-    private int newFingerprintType = 1;
-    private string newFingerprintName = "";
-    private bool useFingerprintPeriod = false;
-    private DateTime fingerStart = DateTime.Now;
-    private DateTime fingerEnd = DateTime.Now.AddYears(1);
+    // Records modal
+    private bool showRecordsModal = false;
+    private long selectedRecordLockId;
+    private List<RecordDto> lockRecords = new();
+
+    private AccessControlSettingsModal settingsModal;
+    private DeviceDto? selectedDevice;
 
     protected override async Task OnInitializedAsync()
     {
         await DeviceService.AuthAsync();
         devices = await DeviceService.GetDevicesAsync();
-        
+        UpdatePagination();
+        await LoadCardsAndFingerprints();
     }
-    private async Task OpenSettingsModal(long lockId)
+
+    private async Task CopyToClipboard(int noKeyPwd)
     {
-        settingsLockId = lockId;
-        showSettingsModal = true;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", noKeyPwd.ToString());
 
-        // Query settings via TTLockClient (DeviceService wrapper)
-        var tamper = await DeviceService.QueryLockSettingAsync(lockId, 3); // Tamper Alert
-    
-        tamperAlertValue = tamper.RootElement.GetProperty("value").GetInt32();
+        // Tampilkan toast
+        _copied = true;
+        StateHasChanged();
 
-        var privacy = await DeviceService.QueryLockSettingAsync(lockId, 2); // Privacy Lock
-        privacyLockValue = privacy.RootElement.GetProperty("value").GetInt32();
-
-        var openDir = await DeviceService.QueryLockSettingAsync(lockId, 7); // Open Direction
-        openDirectionValue = openDir.RootElement.GetProperty("value").GetInt32();
+        // Hilangkan toast setelah 1.5 detik
+        await Task.Delay(150);
+        _copied = false;
+        StateHasChanged();
     }
 
-private void CloseSettingsModal() => showSettingsModal = false;
+    private string searchTerm
+    {
+        get => _searchTerm;
+        set
+        {
+            _searchTerm = value;
+            _currentPage = 1;
+            UpdatePagination();
+        }
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        _currentPage = 1; // reset ke halaman 1
+        UpdatePagination();
+    }
+
+    private async Task ReloadDevices()
+    {
+        devices = await DeviceService.GetDevicesAsync();
+        UpdatePagination();
+        await LoadCardsAndFingerprints();
+    }
+
+    private void UpdatePagination()
+    {
+        if (devices == null) return;
+
+        // Filter berdasarkan search term
+        filteredDevices = string.IsNullOrWhiteSpace(searchTerm)
+            ? devices
+            : devices.Where(d => d.LockAlias.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        _totalPages = (int)Math.Ceiling(filteredDevices.Count / (double)_pageSize);
+        _currentPage = Math.Min(_currentPage, _totalPages);
+        _currentPage = Math.Max(_currentPage, 1);
+
+        pagedDevices = filteredDevices.Skip((_currentPage - 1) * _pageSize).Take(_pageSize).ToList();
+    }
+
+    private void NextPage()
+    {
+        if (_currentPage < _totalPages)
+        {
+            _currentPage++;
+            UpdatePagination();
+        }
+    }
+
+    private void PrevPage()
+    {
+        if (_currentPage > 1)
+        {
+            _currentPage--;
+            UpdatePagination();
+        }
+    }
+
+    private async Task LoadCardsAndFingerprints()
+    {
+        if (devices == null) return;
+
+        try
+        {
+            var cardTasks = devices.Select(d => DeviceService.GetCardsAsync(d.LockId));
+            var cardResults = await Task.WhenAll(cardTasks);
+            cards = cardResults.SelectMany(c => c).ToList();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Failed to load cards: {ex.Message}");
+        }
+
+        try
+        {
+            var fingerprintTasks = devices.Select(d => DeviceService.GetFingerprintsAsync(d.LockId));
+            var fingerprintResults = await Task.WhenAll(fingerprintTasks);
+            fingerprints = fingerprintResults?.SelectMany(f => f).ToList() ?? new List<FingerprintDto>();
+        }
+        catch
+        {
+            ToastService.ShowWarning($"Some locks may not support fingerprints.");
+            fingerprints = new List<FingerprintDto>();
+        }
+
+        StateHasChanged();
+    }
 
     private async Task UnlockDevice(long lockId)
     {
-        await DeviceService.UnlockDeviceAsync(lockId);
-        devices = await DeviceService.GetDevicesAsync();
+        try
+        {
+            await DeviceService.UnlockDeviceAsync(lockId);
+            ToastService.ShowSuccess("Device unlocked ✅");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Failed to unlock: {ex.Message}");
+        }
     }
 
     private async Task LockDevice(long lockId)
     {
-        await DeviceService.LockDeviceAsync(lockId);
-        devices = await DeviceService.GetDevicesAsync();
-    }
-
-    private async Task LoadCards(long lockId)
-    {
-        cards = await DeviceService.GetCardsAsync(lockId);
-    }
-
-    private async Task LoadFingerprints(long lockId)
-    {
-        fingerprints = await DeviceService.GetFingerprintsAsync(lockId);
+        try
+        {
+            await DeviceService.LockDeviceAsync(lockId);
+            ToastService.ShowSuccess("Device locked 🔒");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Failed to lock: {ex.Message}");
+        }
     }
 
     private void OpenAddCardModal(long lockId)
     {
-        modalLockId = lockId;
+        selectedLockId = lockId;
         showAddCardModal = true;
     }
 
-    private void CloseAddCardModal() => showAddCardModal = false;
-
-    private void OpenAddFingerprintModal(long lockId)
+    private void CloseAddCardModal()
     {
-        modalLockId = lockId;
-        showAddFingerprintModal = true;
+        showAddCardModal = false;
+        newCardName = "";
+        newCardNumber = "";
+        validDays = 30;
     }
 
-    private void CloseAddFingerprintModal() => showAddFingerprintModal = false;
-
-    private async Task AddCardAsync()
+    private async Task AddCard()
     {
-        long startMs = usePeriod ? new DateTimeOffset(cardStart).ToUnixTimeMilliseconds() : 0;
-        long endMs = usePeriod ? new DateTimeOffset(cardEnd).ToUnixTimeMilliseconds() : 0;
-
-        await DeviceService.AddCardAsync(modalLockId, newCardName, newCardNumber, newCardValidDays);
-
-        // Jika ingin gunakan periode, bisa modify DeviceService.AddCardAsync untuk mengirim start/end
-        CloseAddCardModal();
-        await JS.InvokeVoidAsync("alert", "Card added successfully!");
-        await LoadCards(modalLockId);
+        try
+        {
+            await DeviceService.AddCardAsync(selectedLockId, newCardName, newCardNumber, validDays);
+            ToastService.ShowSuccess("Card added successfully ✅");
+            CloseAddCardModal();
+            await LoadCardsAndFingerprints();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Failed to add card: {ex.Message}");
+        }
     }
 
-    private async Task AddFingerprintAsync()
+    private void OpenSettingsModal(DeviceDto device)
     {
-        long startMs = useFingerprintPeriod ? new DateTimeOffset(fingerStart).ToUnixTimeMilliseconds() : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        long endMs = useFingerprintPeriod ? new DateTimeOffset(fingerEnd).ToUnixTimeMilliseconds() : DateTimeOffset.UtcNow.AddYears(1).ToUnixTimeMilliseconds();
-
-        await DeviceService.AddFingerprintAsync(modalLockId, newFingerprintNumber, newFingerprintType, newFingerprintName, startMs, endMs);
-
-        CloseAddFingerprintModal();
-        await JS.InvokeVoidAsync("alert", "Fingerprint added successfully!");
-        await LoadFingerprints(modalLockId);
+        selectedDevice = device;
+        if (settingsModal != null)
+        {
+            settingsModal.OpenModal(device);
+        }
+        else
+        {
+            ToastService.ShowWarning("Settings modal not ready yet.");
+        }
     }
 
-    private async Task CopyToClipboard(string text, long lockId)
+
+    private async Task OpenRecordsModal(long lockId)
     {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
-        copiedLockId = lockId;
+        selectedRecordLockId = lockId;
+        showRecordsModal = true;
+
+        try
+        {
+            lockRecords = await DeviceService.GetRecordsAsync(lockId);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Failed to load records: {ex.Message}");
+            lockRecords = new List<RecordDto>();
+        }
+
         StateHasChanged();
+    }
 
-        await Task.Delay(1500);
-        copiedLockId = 0;
-        StateHasChanged();
+    private void CloseRecordsModal()
+    {
+        showRecordsModal = false;
+        lockRecords.Clear();
+    }
+
+    private string GetAccessTypeMeaning(string recordType)
+    {
+        return recordType switch
+        {
+            "7" => "Kartu / RFID",
+            "11" => "Password",
+            "12" => "App / Username login",
+            "47" => "Fingerprint",
+            _ => "Unknown"
+        };
     }
 }

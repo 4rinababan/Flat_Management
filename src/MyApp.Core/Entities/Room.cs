@@ -16,6 +16,8 @@ public class Room
     public RoomCondition Condition { get; set; } = null!;
     public int TotalOccupant { get; set; }
     public int Floor { get; set; }
+    public string LockId { get; set; } = string.Empty;
+    public string HandleLockAlias { get; set; } = string.Empty;
     public int Size { get; set; }
     public bool IsAvailable { get; set; } = true;
     public string Details { get; set; } = string.Empty;

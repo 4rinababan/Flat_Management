@@ -77,6 +77,40 @@ namespace MyApp.Infrastructure.Migrations
                     b.ToTable("Alsuses");
                 });
 
+            modelBuilder.Entity("MyApp.Core.Entities.Area", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Areas");
+                });
+
             modelBuilder.Entity("MyApp.Core.Entities.Building", b =>
                 {
                     b.Property<int>("Id")
@@ -118,6 +152,40 @@ namespace MyApp.Infrastructure.Migrations
                     b.ToTable("Buildings");
                 });
 
+            modelBuilder.Entity("MyApp.Core.Entities.Card", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CardNo")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Type")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("User")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Cards");
+                });
+
             modelBuilder.Entity("MyApp.Core.Entities.Employee", b =>
                 {
                     b.Property<int>("Id")
@@ -129,6 +197,9 @@ namespace MyApp.Infrastructure.Migrations
                     b.Property<string>("Address")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<int>("CardId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -184,6 +255,8 @@ namespace MyApp.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CardId");
+
                     b.HasIndex("PositionId");
 
                     b.HasIndex("RankId");
@@ -222,6 +295,101 @@ namespace MyApp.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Files");
+                });
+
+            modelBuilder.Entity("MyApp.Core.Entities.GateDevice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AreaId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeviceAlias")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("DeviceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DeviceIp")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("DeviceName")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("DeviceOption")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("DeviceSn")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("FaceAlgorithmVersion")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("FingerprintAlgorithmVersion")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("FirmwareVersion")
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("Heartbeat")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsAttendance")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsRegistered")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("LastHeartbeat")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("RequiredFaceEnrollment")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Timezone")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TotalAttendancesRecord")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TotalEnrolledFace")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TotalEnrolledFingerprint")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TotalEnrolledUser")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TransferMode")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Value10")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AreaId");
+
+                    b.ToTable("GateDevices");
                 });
 
             modelBuilder.Entity("MyApp.Core.Entities.Inventory", b =>
@@ -759,11 +927,22 @@ namespace MyApp.Infrastructure.Migrations
                     b.Property<string>("DocumentName")
                         .HasColumnType("longtext");
 
+                    b.Property<int?>("EmployeeId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Floor")
                         .HasColumnType("int");
 
+                    b.Property<string>("HandleLockAlias")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<bool>("IsAvailable")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("LockId")
+                        .IsRequired()
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -799,6 +978,8 @@ namespace MyApp.Infrastructure.Migrations
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("ConditionId");
+
+                    b.HasIndex("EmployeeId");
 
                     b.HasIndex("StatusId");
 
@@ -1185,6 +1366,12 @@ namespace MyApp.Infrastructure.Migrations
 
             modelBuilder.Entity("MyApp.Core.Entities.Employee", b =>
                 {
+                    b.HasOne("MyApp.Core.Entities.Card", "Card")
+                        .WithMany()
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("MyApp.Core.Entities.Position", "Position")
                         .WithMany()
                         .HasForeignKey("PositionId")
@@ -1197,9 +1384,20 @@ namespace MyApp.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Card");
+
                     b.Navigation("Position");
 
                     b.Navigation("Rank");
+                });
+
+            modelBuilder.Entity("MyApp.Core.Entities.GateDevice", b =>
+                {
+                    b.HasOne("MyApp.Core.Entities.Area", "Area")
+                        .WithMany()
+                        .HasForeignKey("AreaId");
+
+                    b.Navigation("Area");
                 });
 
             modelBuilder.Entity("MyApp.Core.Entities.Inventory", b =>
@@ -1318,6 +1516,10 @@ namespace MyApp.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MyApp.Core.Entities.Employee", null)
+                        .WithMany("Room")
+                        .HasForeignKey("EmployeeId");
+
                     b.HasOne("MyApp.Core.Entities.RoomStatus", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId")
@@ -1356,6 +1558,11 @@ namespace MyApp.Infrastructure.Migrations
 
                     b.Navigation("Occupant");
 
+                    b.Navigation("Room");
+                });
+
+            modelBuilder.Entity("MyApp.Core.Entities.Employee", b =>
+                {
                     b.Navigation("Room");
                 });
 #pragma warning restore 612, 618

@@ -1,0 +1,184 @@
+@inject DeviceService DeviceService
+@using System.Collections.Generic
+
+<div>
+    @if (showModal)
+    {
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl w-2/3 max-h-[80vh] overflow-y-auto shadow-lg">
+                <h2 class="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Device Settings</h2>
+
+                <!-- Edit Device Name -->
+                <div class="mb-4">
+                    <label class="block mb-1 text-gray-700 dark:text-gray-200">Device Name</label>
+                    <input class="w-full p-2 border rounded" @bind="editDeviceName" />
+                </div>
+
+                <!-- IC Cards -->
+                <div class="mb-4">
+                    <h3 class="font-semibold text-gray-800 dark:text-gray-100">Cards</h3>
+                    @if (cards != null && cards.Count > 0)
+                    {
+                        <ul>
+                            @foreach (var c in cards)
+                            {
+                                <li class="flex justify-between items-center py-1">
+                                    <span>@c.CardNumber - @c.CardName</span>
+                                    <button class="px-2 py-1 rounded @((deleteCardConfirm.Contains(c.CardId) ? "bg-red-600 text-white" : "bg-gray-200"))"
+                                            @onclick="() => ToggleDeleteCard(c.CardId)">
+                                        X
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p>No cards available.</p>
+                    }
+                </div>
+
+                <!-- Fingerprints -->
+                <div class="mb-4">
+                    <h3 class="font-semibold text-gray-800 dark:text-gray-100">Fingerprints</h3>
+                    @if (fingerprints != null && fingerprints.Count > 0)
+                    {
+                        <ul>
+                            @foreach (var f in fingerprints)
+                            {
+                                <li class="flex justify-between items-center py-1">
+                                    <span>@f.FingerprintName</span>
+                                    <button class="px-2 py-1 rounded @((deleteFpConfirm.Contains(f.FingerprintId) ? "bg-red-600 text-white" : "bg-gray-200"))"
+                                            @onclick="() => ToggleDeleteFingerprint(f.FingerprintId)">
+                                        X
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p>No fingerprints available.</p>
+                    }
+                </div>
+
+                @if (showAttentionMessage)
+                {
+                    <p class="text-red-600 font-bold mb-2">
+                        Attention: Delete identity, please click again if aware!
+                    </p>
+                }
+
+                <div class="flex justify-end mt-4 space-x-2">
+                    <button class="px-4 py-2 bg-gray-200 rounded" @onclick="CloseModal">Cancel</button>
+                    <button class="px-4 py-2 bg-blue-600 text-white rounded" @onclick="SaveChanges">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    
+    [Parameter] public DeviceDto Device { get; set; }
+    [Parameter] public EventCallback OnUpdated { get; set; }
+
+    private bool showModal;
+    private string editDeviceName;
+
+    private List<ICCardDto> cards = new();
+    private List<FingerprintDto> fingerprints = new();
+
+    private HashSet<long> deleteCardConfirm = new();
+    private HashSet<long> deleteFpConfirm = new();
+    private bool showAttentionMessage = false;
+
+    public async Task OpenModal(DeviceDto device)
+    {
+        @* Console.WriteLine($"Opening modal for lock {device.LockAlias}"); *@
+        Device = device;
+        editDeviceName = Device.LockAlias;
+        cards = await DeviceService.GetCardsAsync(Device.LockId);
+        fingerprints = await DeviceService.GetFingerprintsAsync(Device.LockId);
+        showModal = true;
+        StateHasChanged();
+    }
+
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+    private void ToggleDeleteCard(long cardId)
+    {
+        if (!deleteCardConfirm.Contains(cardId))
+        {
+            deleteCardConfirm.Add(cardId);
+            showAttentionMessage = true;
+        }
+        else
+        {
+            // Confirmed, delete
+            DeleteCard(cardId);
+        }
+    }
+
+    private void ToggleDeleteFingerprint(long fpId)
+    {
+        if (!deleteFpConfirm.Contains(fpId))
+        {
+            deleteFpConfirm.Add(fpId);
+            showAttentionMessage = true;
+        }
+        else
+        {
+            DeleteFingerprint(fpId);
+        }
+    }
+
+    private async void DeleteCard(long cardId)
+    {
+        try
+        {
+            await DeviceService.DeleteCardAsync(Device.LockId, cardId); // tambahkan method di DeviceService
+            cards.RemoveAll(c => c.CardId == cardId);
+            deleteCardConfirm.Remove(cardId);
+            showAttentionMessage = false;
+            StateHasChanged();
+        }
+        catch
+        {
+            // error handling
+        }
+    }
+
+    private async void DeleteFingerprint(long fpId)
+    {
+        try
+        {
+            await DeviceService.DeleteFingerprintAsync(Device.LockId, fpId); // tambahkan method di DeviceService
+            fingerprints.RemoveAll(f => f.FingerprintId == fpId);
+            deleteFpConfirm.Remove(fpId);
+            showAttentionMessage = false;
+            StateHasChanged();
+        }
+        catch
+        {
+            // error handling
+        }
+    }
+
+    private async Task SaveChanges()
+    {
+        if (editDeviceName != Device.LockAlias)
+        {
+            await DeviceService.RenameLockAsync(Device.LockId, editDeviceName);
+            Device.LockAlias = editDeviceName;
+        }
+
+        showModal = false;
+        if (OnUpdated.HasDelegate)
+            await OnUpdated.InvokeAsync();
+    }
+}

@@ -56,6 +56,14 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRGV2aWNlXEFjY2Vzc0NvbnRyb2xQYWdlLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[d:/Projects/Densus88/new_app/src/MyApp.Web/Pages/Device/AccessControlSettingsModal.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRGV2aWNlXEFjY2Vzc0NvbnRyb2xTZXR0aW5nc01vZGFsLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[d:/Projects/Densus88/new_app/src/MyApp.Web/Pages/Device/GatesAccess.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRGV2aWNlXEdhdGVzQWNjZXNzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [d:/Projects/Densus88/new_app/src/MyApp.Web/Pages/Employee/EmployeePage.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRW1wbG95ZWVcRW1wbG95ZWVQYWdlLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 

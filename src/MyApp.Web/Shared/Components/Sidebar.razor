@@ -90,9 +90,9 @@
             Submenu = new()
             {
                 new() { Id = "weapon", Label = "Weapon", IconName = "archive", Color = "text-teal-400", Url = "/weapons"},
-                new() { Id = "alsus", Label = "Alsus", IconName = "clipboard-list", Color = "text-teal-400", Url = "/alsus"},
+                @* new() { Id = "alsus", Label = "Alsus", IconName = "clipboard-list", Color = "text-teal-400", Url = "/alsus"},
                 new() { Id = "request-weapon-alsus", Label = "Request Weapon/Alsus", IconName = "clipboard-document", Color = "text-teal-400", Url = "/request-weapons"},
-                new() { Id = "tracking-weapon-histories", Label = "Tracking Histories", IconName = "clock", Color = "text-teal-400", Url = "/weapon-history-tracking"},
+                new() { Id = "tracking-weapon-histories", Label = "Tracking Histories", IconName = "clock", Color = "text-teal-400", Url = "/weapon-history-tracking"}, *@
             }
         },
         new() { 
@@ -107,8 +107,30 @@
                 new() { Id = "histories", Label = "Histories", IconName = "clock", Color = "text-teal-400", Url = "/inventory-history"},
             }
         },
-        new() { Id = "access-control", Label = "Access Control", IconName = "key", Color = "text-emerald-400", Url= "/access-control" },
-        new() { Id = "access-menu", Label = "Access Menu", IconName = "key", Color = "text-emerald-400", Url= "/access-menu" },
+        new() { 
+            Id = "access-control", 
+            Label = "Access Control", 
+            IconName = "key", Color = "text-emerald-400", 
+            Submenu = new()
+            {
+                new() { Id = "handle-locks", Label = "Handle Locks", IconName = "chart-bar2", Color = "text-teal-400", Url = "/access-control/handle-locks"},
+                new() { Id = "gates", Label = "Gates", IconName = "folder-open", Color = "text-teal-400", Url = "/access-control/gates"},
+            }
+        },
+        new() { 
+            Id = "data-care", 
+            Label = "Data Care", 
+            IconName = "database", 
+            Color = "text-red-400", 
+            Submenu = new()
+            {
+                new() { Id = "scheduler", Label = "Scheduler", IconName = "archive", Color = "text-teal-400", Url = "/scheduler"},
+                @* new() { Id = "alsus", Label = "Alsus", IconName = "clipboard-list", Color = "text-teal-400", Url = "/alsus"},
+                new() { Id = "request-weapon-alsus", Label = "Request Weapon/Alsus", IconName = "clipboard-document", Color = "text-teal-400", Url = "/request-weapons"},
+                new() { Id = "tracking-weapon-histories", Label = "Tracking Histories", IconName = "clock", Color = "text-teal-400", Url = "/weapon-history-tracking"}, *@
+            }
+        },
+        @* new() { Id = "access-menu", Label = "Access Menu", IconName = "key", Color = "text-emerald-400", Url= "/access-menu" }, *@
         new() { 
             Id = "master-data", 
             Label = "Master Data", 

@@ -110,6 +110,9 @@ builder.Services.AddScoped<IInventoryRequestRepository, InventoryRequestReposito
 builder.Services.AddScoped<IInventoryHistoryRepository, InventoryHistoryRepository>();
 builder.Services.AddScoped<IWeaponRepository, WeaponRepository>();
 builder.Services.AddScoped<IAlsusRepository, AlsusRepository>();
+builder.Services.AddScoped<IAreaRepository, AreaRepository>();
+builder.Services.AddScoped<ICardRepository, CardRepository>();
+builder.Services.AddScoped<IGateDeviceRepository, GateDeviceRepository>();
 
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddBlazoredToast();

@@ -34,6 +34,9 @@ namespace MyApp.Infrastructure.Data
         public DbSet<InventoryHistory> InventoryHistories { get; set; } = default!;
         public DbSet<Weapon> Weapons { get; set; } = default!;
         public DbSet<Alsus> Alsuses { get; set; } = default!;
+        public DbSet<Area> Areas { get; set; } = default!;
+        public DbSet<Card> Cards { get; set; } = default!;
+        public DbSet<GateDevice> GateDevices { get; set; } = default!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

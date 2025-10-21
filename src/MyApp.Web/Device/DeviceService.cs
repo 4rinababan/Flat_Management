@@ -14,7 +14,10 @@ public class DeviceService
         await _ttLock.AuthAsync();
     }
 
-    public async Task<List<DeviceDto>> GetDevicesAsync(int pageNo = 1, int pageSize = 20)
+    // ==============================
+    // Get Lock Devices
+    // ==============================
+    public async Task<List<DeviceDto>> GetDevicesAsync(int pageNo = 1, int pageSize = 200)
     {
         var doc = await _ttLock.GetLockListAsync(pageNo, pageSize);
         var list = new List<DeviceDto>();
@@ -25,10 +28,12 @@ public class DeviceService
             {
                 list.Add(new DeviceDto
                 {
-                    LockAlias = item.GetProperty("lockAlias").GetString() ?? "",
-                    LockId = item.GetProperty("lockId").GetInt64(),
-                    ElectricQuantity = item.GetProperty("electricQuantity").GetInt32(),
-                    NoKeyPwd = item.GetProperty("noKeyPwd").GetString() ?? ""
+                    LockId = item.GetPropertyOrDefault<long>("lockId", 0L),
+                    LockAlias = item.GetPropertyOrDefault<string>("lockAlias", string.Empty),
+                    ElectricQuantity = item.GetPropertyOrDefault<int>("electricQuantity", 0),
+                    NoKeyPwd = item.GetPropertyOrDefault<int>("noKeyPwd", 0),
+                    LockMac = item.GetPropertyOrDefault<string>("lockMac", string.Empty),
+                    Date = item.GetDateTimeFromUnix("date")
                 });
             }
         }
@@ -36,10 +41,48 @@ public class DeviceService
         return list;
     }
 
-    // ===============================================
-    // Method baru: Get all IC cards of a lock
-    // ===============================================
-    public async Task<List<ICCardDto>> GetCardsAsync(long lockId, int pageNo = 1, int pageSize = 20)
+    // ==============================
+    // Rename Lock (Update Device)
+    // ==============================
+    public async Task<bool> UpdateDeviceAsync(long lockId, string newAlias)
+    {
+        try
+        {
+            var response = await _ttLock.RenameLockAsync(lockId, newAlias);
+            return response.ErrCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ==============================
+    // Lock / Unlock
+    // ==============================
+    public async Task LockDeviceAsync(long lockId) => await _ttLock.LockAsync(lockId);
+    public async Task UnlockDeviceAsync(long lockId) => await _ttLock.UnlockAsync(lockId);
+
+    // ==============================
+    // IC Cards
+    // ==============================
+    public async Task<bool> AddCardAsync(long lockId, string cardName, string cardNumber, int validDays)
+    {
+        try
+        {
+            var response = await _ttLock.AddCardAsync(lockId, cardName, cardNumber, validDays);
+            return response.ErrCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task DeleteCardAsync(long lockId, long cardId)
+        => await _ttLock.DeleteCardAsync(lockId, cardId);
+
+    public async Task<List<ICCardDto>> GetCardsAsync(long lockId)
     {
         var doc = await _ttLock.GetCardsAsync(lockId);
         var list = new List<ICCardDto>();
@@ -50,15 +93,15 @@ public class DeviceService
             {
                 list.Add(new ICCardDto
                 {
-                    CardId = item.GetProperty("cardId").GetInt64(),
-                    LockId = item.GetProperty("lockId").GetInt64(),
-                    CardNumber = item.GetProperty("cardNumber").GetString() ?? "",
-                    CardName = item.GetProperty("cardName").GetString() ?? "",
-                    StartDate = DateTimeOffset.FromUnixTimeMilliseconds(item.GetProperty("startDate").GetInt64()).DateTime,
-                    EndDate = DateTimeOffset.FromUnixTimeMilliseconds(item.GetProperty("endDate").GetInt64()).DateTime,
-                    CreateDate = DateTimeOffset.FromUnixTimeMilliseconds(item.GetProperty("createDate").GetInt64()).DateTime,
-                    SenderUsername = item.GetProperty("senderUsername").GetString() ?? "",
-                    CardType = item.GetProperty("cardType").GetInt32()
+                    CardId = item.GetPropertyOrDefault("cardId", 0L),
+                    LockId = item.GetPropertyOrDefault("lockId", 0L),
+                    CardNumber = item.GetPropertyOrDefault("cardNumber", string.Empty),
+                    CardName = item.GetPropertyOrDefault("cardName", string.Empty),
+                    CardType = item.GetPropertyOrDefault("cardType", 0),
+                    SenderUsername = item.GetPropertyOrDefault("senderUsername", string.Empty),
+                    StartDate = item.GetDateTimeFromUnix("startDate"),
+                    EndDate = item.GetDateTimeFromUnix("endDate"),
+                    CreateDate = item.GetDateTimeFromUnix("createDate")
                 });
             }
         }
@@ -66,7 +109,9 @@ public class DeviceService
         return list;
     }
 
-    // Get Fingerprints
+    // ==============================
+    // Fingerprints
+    // ==============================
     public async Task<List<FingerprintDto>> GetFingerprintsAsync(long lockId)
     {
         var doc = await _ttLock.GetFingerprintsAsync(lockId);
@@ -78,12 +123,14 @@ public class DeviceService
             {
                 list.Add(new FingerprintDto
                 {
-                    FingerprintId = item.GetProperty("fingerprintId").GetInt64(),
-                    LockId = item.GetProperty("lockId").GetInt64(),
-                    FingerprintName = item.GetProperty("fingerprintName").GetString() ?? "",
-                    FingerprintNumber = item.GetProperty("fingerprintNumber").GetString() ?? "",
-                    StartDate = DateTimeOffset.FromUnixTimeMilliseconds(item.GetProperty("startDate").GetInt64()).DateTime,
-                    EndDate = DateTimeOffset.FromUnixTimeMilliseconds(item.GetProperty("endDate").GetInt64()).DateTime
+                    FingerprintId = item.GetPropertyOrDefault("fingerprintId", 0L),
+                    LockId = item.GetPropertyOrDefault("lockId", 0L),
+                    FingerprintName = item.GetPropertyOrDefault("fingerprintName", string.Empty),
+                    FingerprintNumber = item.GetPropertyOrDefault("fingerprintNumber", string.Empty),
+                    FingerprintType = item.GetPropertyOrDefault("fingerprintType", 0),
+                    StartDate = item.GetDateTimeFromUnix("startDate"),
+                    EndDate = item.GetDateTimeFromUnix("endDate"),
+                    CreateDate = item.GetDateTimeFromUnix("createDate")
                 });
             }
         }
@@ -91,26 +138,89 @@ public class DeviceService
         return list;
     }
 
-    // ==========================
-    // Add Card wrapper
-    // ==========================
-    public async Task AddCardAsync(long lockId, string cardName, string cardNumber, int validDays)
+    public async Task DeleteFingerprintAsync(long lockId, long fpId)
+        => await _ttLock.DeleteFingerprintAsync(lockId, fpId);
+
+    // ==============================
+    // eKeys, Passcodes, Records
+    // ==============================
+    public async Task<List<EKeyDto>> GetEKeysAsync(long lockId, int pageNo = 1, int pageSize = 20)
     {
-        await _ttLock.AddCardAsync(lockId, cardName, cardNumber, validDays);
+        var doc = await _ttLock.GetEKeysAsync(lockId, pageNo, pageSize);
+        var list = new List<EKeyDto>();
+
+        if (doc.RootElement.TryGetProperty("list", out var ekeys))
+        {
+            foreach (var item in ekeys.EnumerateArray())
+            {
+                list.Add(new EKeyDto
+                {
+                    EKeyId = item.GetPropertyOrDefault("keyId", 0L),
+                    LockId = item.GetPropertyOrDefault("lockId", 0L),
+                    Username = item.GetPropertyOrDefault("username", string.Empty),
+                    KeyStatus = item.GetPropertyOrDefault("keyStatus", 0),
+                    StartDate = item.GetDateTimeFromUnix("startDate"),
+                    EndDate = item.GetDateTimeFromUnix("endDate"),
+                    CreateDate = item.GetDateTimeFromUnix("createDate")
+                });
+            }
+        }
+
+        return list;
     }
 
-    // ==========================
-    // Add Fingerprint wrapper
-    // ==========================
-    public async Task AddFingerprintAsync(long lockId, string fingerprintNumber, int fingerprintType,
-        string fingerprintName, long startDate, long endDate)
+    public async Task<TTLockResponse> RenameLockAsync(long lockId, string newAlias)
     {
-        await _ttLock.AddFingerprintAsync(lockId, fingerprintNumber, fingerprintType, fingerprintName, startDate, endDate);
+        return await _ttLock.RenameLockAsync(lockId, newAlias);
     }
 
-    public async Task<JsonDocument> QueryLockSettingAsync(long lockId, int type) =>
-        await _ttLock.QueryLockSettingAsync(lockId, type);
+    public async Task<List<PasscodeDto>> GetPasscodesAsync(long lockId, int pageNo = 1, int pageSize = 20)
+    {
+        var doc = await _ttLock.GetPasscodesAsync(lockId, pageNo, pageSize);
+        var list = new List<PasscodeDto>();
 
-    public async Task LockDeviceAsync(long lockId) => await _ttLock.LockAsync(lockId);
-    public async Task UnlockDeviceAsync(long lockId) => await _ttLock.UnlockAsync(lockId);
+        if (doc.RootElement.TryGetProperty("list", out var passcodes))
+        {
+            foreach (var item in passcodes.EnumerateArray())
+            {
+                list.Add(new PasscodeDto
+                {
+                    PasscodeId = item.GetPropertyOrDefault("keyboardPwdId", 0L),
+                    LockId = item.GetPropertyOrDefault("lockId", 0L),
+                    KeyboardPwd = item.GetPropertyOrDefault("keyboardPwd", string.Empty),
+                    PwdName = item.GetPropertyOrDefault("pwdName", string.Empty),
+                    SenderUsername = item.GetPropertyOrDefault("senderUsername", string.Empty),
+                    StartDate = item.GetDateTimeFromUnix("startDate"),
+                    EndDate = item.GetDateTimeFromUnix("endDate"),
+                    CreateDate = item.GetDateTimeFromUnix("createDate")
+                });
+            }
+        }
+
+        return list;
+    }
+
+    public async Task<List<RecordDto>> GetRecordsAsync(long lockId, int pageNo = 1, int pageSize = 50)
+    {
+        var doc = await _ttLock.GetRecordsAsync(lockId, pageNo, pageSize);
+        var list = new List<RecordDto>();
+
+        if (doc.RootElement.TryGetProperty("list", out var records))
+        {
+            foreach (var item in records.EnumerateArray())
+            {
+                list.Add(new RecordDto
+                {
+                    LockId = item.GetPropertyOrDefault("lockId", 0L),
+                    RecordType = item.GetPropertyOrDefault("recordType", string.Empty),
+                    Username = item.GetPropertyOrDefault("username", string.Empty),
+                    ClientName = item.GetPropertyOrDefault("clientName", string.Empty),
+                    LockDate = item.GetDateTimeFromUnix("lockDate"),
+                    ServerDate = item.GetDateTimeFromUnix("serverDate")
+                });
+            }
+        }
+
+        return list;
+    }
 }

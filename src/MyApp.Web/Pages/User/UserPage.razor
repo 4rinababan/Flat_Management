@@ -239,23 +239,54 @@
                             </div>
                             <div>
                                 <label class="block text-gray-700 text-sm font-medium mb-1">Password</label>
-                                <InputText type="password" class="w-full border border-gray-300 px-4 py-2 rounded-lg focus:border-blue-500" @bind-Value="Password" placeholder="Password" />
+
+                                <div class="relative">
+                                    <InputText
+                                        type="@(ShowPassword ? "text" : "password")"
+                                        class="w-full border border-gray-300 px-4 py-2 rounded-lg focus:border-blue-500"
+                                        @bind-Value="Password"
+                                        @oninput="@(e => CheckPasswordStrength(e.Value?.ToString()))"
+                                        placeholder="Password" />
+
+                                    <button type="button"
+                                            class="absolute inset-y-0 right-2 flex items-center text-gray-500 hover:text-gray-700"
+                                            @onclick="() => ShowPassword = !ShowPassword">
+                                        <i class="fas @(ShowPassword ? "fa-eye" : "fa-eye-slash")"></i>
+                                    </button>
+                                </div>
+
                                 @if (SelectedUser.Id == 0)
                                 {
                                     <ValidationMessage For="@(() => Password)" />
                                 }
+
+                                @if (!string.IsNullOrEmpty(Password))
+                                {
+                                    <div class="mt-1 text-xs transition-all duration-300 ease-in-out @passwordStrengthColor">
+                                        @passwordStrengthText
+                                    </div>
+                                    <div class="w-full h-1 rounded-full bg-gray-200 mt-1">
+                                        <div class="h-1 rounded-full transition-all duration-300 ease-in-out @passwordBarColor"
+                                            style="width: @passwordBarWidth;">
+                                        </div>
+                                    </div>
+                                }
                             </div>
+
                         </div>
-                        <div class="mb-4 flex gap-6">
-                            <div>
-                                <label class="block text-gray-700 text-sm font-medium mb-1">Status</label>
-                                <InputCheckbox class="mr-2" @bind-Value="SelectedUser.IsActive" /> Active
+                       @if (SelectedUser.Id != 0)  // hanya show saat EDIT
+                        {
+                            <div class="mb-4 flex gap-6">
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-medium mb-1">Status</label>
+                                    <InputCheckbox class="mr-2" @bind-Value="SelectedUser.IsActive" /> Active
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-medium mb-1">Blocked</label>
+                                    <InputCheckbox class="mr-2" @bind-Value="SelectedUser.IsBlocked" /> Blocked
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-gray-700 text-sm font-medium mb-1">Blocked</label>
-                                <InputCheckbox class="mr-2" @bind-Value="SelectedUser.IsBlocked" /> Blocked
-                            </div>
-                        </div>
+                        }
                         <div class="mt-6 flex justify-end gap-3 border-t pt-4">
                             <button type="button" class="bg-red-700 hover:bg-red-800 text-white font-semibold px-5 py-2 rounded-lg transition flex items-center gap-2" @onclick="() => ShowModal = false">
                                 <i class="fas fa-ban"></i> Cancel
@@ -286,9 +317,19 @@
             </div>
         </div>
     }
+    
+
 </div>
 
 @code {
+
+#region Injected Services
+    private string passwordBarWidth = "0%";
+    private string passwordBarColor = "bg-red-400";
+    private string passwordStrengthText = string.Empty;
+    private string passwordStrengthColor = string.Empty;
+
+    private bool ShowPassword = false;
     private ToastContainer? toastContainer;
     private List<User> Users = new();
     private List<Role> Roles = new();
@@ -306,12 +347,58 @@
     private const int PageSize = 10;
     private int TotalPages => (int)Math.Ceiling(FilteredUsers.Count() / (double)PageSize);
 
+#endregion
+
     protected override async Task OnInitializedAsync()
     {
         await LoadUsers();
         Roles = await RoleService.GetAllAsync();
         Loading = false;
     }
+
+    private void CheckPasswordStrength(string? pwd)
+    {
+        if (string.IsNullOrEmpty(pwd))
+        {
+            passwordStrengthText = string.Empty;
+            passwordStrengthColor = string.Empty;
+            return;
+        }
+
+        int score = 0;
+
+        if (pwd.Length >= 8) score++;
+        if (pwd.Any(char.IsUpper)) score++;
+        if (pwd.Any(char.IsLower)) score++;
+        if (pwd.Any(char.IsDigit)) score++;
+        if (pwd.Any(ch => "!@#$%^&*()_+-=[]{}|;':\",.<>?/`~".Contains(ch))) score++;
+
+        switch (score)
+        {
+            case <= 2:
+                passwordStrengthText = "Weak";
+                passwordStrengthColor = "text-red-500";
+                passwordBarWidth = "33%";
+                passwordBarColor = "bg-red-400";
+                break;
+            case 3:
+                passwordStrengthText = "Medium";
+                passwordStrengthColor = "text-yellow-500";
+                passwordBarWidth = "66%";
+                passwordBarColor = "bg-yellow-400";
+                break;
+            default:
+                passwordStrengthText = "Strong";
+                passwordStrengthColor = "text-green-600";
+                passwordBarWidth = "100%";
+                passwordBarColor = "bg-green-500";
+                break;
+        }
+
+    }
+
+
+    
 
     private async Task LoadUsers()
     {
@@ -414,21 +501,22 @@
     {
         try
         {
-            ShowConfirmModal = false; // ⬅️ Tutup dulu biar UI langsung update
-            StateHasChanged();     
+            ShowConfirmModal = false; // tutup modal dulu
+
+            // --- Optimistik Update: hapus dari list lokal dulu ---
+            var user = Users.FirstOrDefault(u => u.Id == UserIdToDelete);
+            if (user != null)
+                Users.Remove(user);
+
             await UserService.DeleteAsync(UserIdToDelete);
-            await LoadUsers();
             await ToastService.ShowInfo("User deleted successfully!");
         }
         catch (Exception ex)
         {
             await ToastService.ShowError($"Error: {ex.Message}");
         }
-        finally
-        {
-            ShowConfirmModal = false;
-        }
     }
+
 
     private async Task SaveUser()
     {
@@ -446,6 +534,8 @@
 
         try
         {
+            ShowModal = false; // tutup modal dulu biar UI langsung respon
+
             if (SelectedUser.Id == 0)
             {
                 // --- CALL API REGISTER ---
@@ -461,9 +551,21 @@
 
                 if (response.IsSuccessStatusCode)
                 {
+                    // --- Optimistik Update: langsung tambahkan ke list lokal ---
+                    var newUser = new User
+                    {
+                        Id = int.Parse(await response.Content.ReadAsStringAsync()), // misal server kembalikan new ID
+                        UserName = SelectedUser.UserName,
+                        Email = SelectedUser.Email,
+                        RoleId = SelectedUser.RoleId,
+                        Role = Roles.FirstOrDefault(r => r.Id == SelectedUser.RoleId),
+                        IsActive = SelectedUser.IsActive,
+                        IsBlocked = SelectedUser.IsBlocked,
+                        CreatedAt = DateTime.Now,
+                        CreatedBy = "System"
+                    };
+                    Users.Add(newUser);
                     await ToastService.ShowSuccess("User added successfully!");
-                    ShowModal = false;
-                    await LoadUsers();
                 }
                 else
                 {
@@ -473,14 +575,18 @@
             }
             else
             {
-                // Update user lokal / domain
+                // --- Update user lokal + hash password non-blocking ---
                 if (!string.IsNullOrWhiteSpace(Password))
-                    SelectedUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(Password);
+                    SelectedUser.PasswordHash = await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(Password));
 
                 await UserService.UpdateAsync(SelectedUser);
+
+                // Update list lokal agar tidak reload
+                var index = Users.FindIndex(u => u.Id == SelectedUser.Id);
+                if (index != -1)
+                    Users[index] = SelectedUser;
+
                 await ToastService.ShowInfo("User updated successfully!");
-                ShowModal = false;
-                await LoadUsers();
             }
         }
         catch (Exception ex)
@@ -488,6 +594,7 @@
             await ToastService.ShowError($"Error: {ex.Message}");
         }
     }
+
 
 
     public class RegisterRequest
