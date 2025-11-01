@@ -2,6 +2,7 @@
 @using MyApp.Web.Shared.Components
 @using MyApp.Web.Shared.IdleScreen
 @inject NavigationManager NavManager
+@attribute [Authorize]
 
 <div class="min-h-screen flex bg-gray-50">
     <Sidebar />
@@ -21,7 +22,7 @@
         </div>
 
         <!-- Body Content -->
-        <div class="flex-1 p-8 relative">
+        <div class="flex-1 p-8 relative overflow-auto">
             <div class="absolute inset-0 flex justify-center items-center pointer-events-none">
                 <img src="assets/images/mock-polri.png" class="max-w-[50%] max-h-[50%] opacity-15" alt="watermark">
             </div>

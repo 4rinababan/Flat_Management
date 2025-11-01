@@ -1,7 +1,5 @@
 ﻿@page "/"
-@* @attribute [Authorize] *@
-@* @inject AuthenticationStateProvider AuthStateProvider *@
-
+@attribute [Authorize]
 @using System.Collections.Generic
 @using System.Linq
 @using System.Threading.Tasks
@@ -199,19 +197,3 @@ new Notification { Id = 5, Message = "Kapasitas Gedung C mencapai 90%.", TargetR
         </div>
     </div>
 </div>
-
-
-@code {
-    @* private string username = "";
-
-    protected override async Task OnInitializedAsync()
-    {
-        var state = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = state.User;
-
-        if (user.Identity?.IsAuthenticated ?? false)
-        {
-            username = user.Identity.Name;
-        }
-    } *@
-}

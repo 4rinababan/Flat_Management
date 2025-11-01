@@ -2,34 +2,35 @@
 @using System.Collections.Generic
 @using Microsoft.AspNetCore.Identity
 @using MyApp.Infrastructure.Identity
+@using MyApp.Web.Authentication
+@using Microsoft.AspNetCore.Components.Authorization
 
 @inject NavigationManager NavManager
 @inject SignInManager<ApplicationUser> SignInManager
+@inject CustomAuthenticationStateProvider AuthStateProvider
+@inject HttpClient Http
+@inject ILogger<Sidebar> Logger
 
-
-<div class="w-70 min-h-screen max-h-screen overflow-y-auto 
-            bg-gradient-to-b from-red-800  to-black">
+<div class="flex flex-col h-screen w-70 bg-gradient-to-b from-red-800 to-black">
     <!-- Logo Section -->
-    <div class="flex flex-col items-center mb-6">
-    <label class="flex flex-col items-center cursor-pointer mt-4">
-        <!-- Avatar -->
-        <img src="@avatarUrl" alt="App Logo"
-             class="w-40 h-40 rounded-full border-2 border-blue shadow-md mb-3 object-cover" />
+    <div class="flex-shrink-0 flex flex-col items-center py-6 px-4 border-b border-gray-700">
+        <label class="flex flex-col items-center cursor-pointer">
+            <!-- Avatar -->
+            <img src="@avatarUrl" alt="App Logo"
+                 class="w-32 h-32 rounded-full border-2 border-blue shadow-md mb-3 object-cover" />
 
-        <!-- InputFile tersembunyi; klik label memicu input ini -->
-        <InputFile OnChange="HandleSelected" class="hidden" />
-    </label>
+            <!-- InputFile tersembunyi; klik label memicu input ini -->
+            <InputFile OnChange="HandleSelected" class="hidden" />
+        </label>
 
-    <!-- Nama App -->
-    <span class="text-md font-semibold text-white mt-4">
-        Flat Management System
-    </span>
-</div>
+        <!-- Nama App -->
+        <span class="text-sm font-semibold text-white mt-4 text-center">
+            Flat Management System
+        </span>
+    </div>
 
-
-
-    <!-- Menu Items -->
-    <div class="py-4 space-y-1">
+    <!-- Menu Items - Scrollable -->
+    <div class="flex-1 overflow-y-auto py-4 space-y-1 px-2">
         @foreach (var item in MenuItems)
         {
             <div class="group">
@@ -38,24 +39,36 @@
         }
     </div>
 
-    <!-- Logout Section -->
-    <div class="border-t border-gray-700 p-4 mt-auto">
+    <!-- Logout Section - Sticky at bottom -->
+    <div class="flex-shrink-0 border-t border-gray-700 p-4 bg-black/50">
         <CascadingAuthenticationState>
             <AuthorizeView>
                 <Authorized>
-                    <div class="mb-2 text-xs text-gray-400">
-                        Logged in as: <span class="text-white font-semibold">@context.User.Identity?.Name</span>
+                    <div class="mb-3 text-xs text-gray-400 px-2">
+                        Logged in as: <span class="text-white font-semibold block truncate">@context.User.Identity?.Name</span>
                     </div>
                     <button @onclick="LogoutAsync"
-                            class="w-full flex items-center justify-between px-4 py-3 cursor-pointer transition-all duration-200 hover:bg-white/10 rounded-lg mx-2 bg-red-600 hover:bg-red-700 text-white font-medium">
-                        <div class="flex items-center gap-4">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            disabled="@isLoading"
+                            class="w-full flex items-center justify-start gap-3 px-4 py-3 cursor-pointer transition-all duration-200 hover:bg-red-700 rounded-lg bg-red-600 text-white font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        @if (isLoading)
+                        {
+                            <svg class="animate-spin h-5 w-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                             </svg>
-                            <span>Logout</span>
-                        </div>
+                        }
+                        <span>@(isLoading ? "Logging out..." : "Logout")</span>
                     </button>
                 </Authorized>
+                <NotAuthorized>
+                    <p class="text-gray-400 text-sm px-2">Not logged in</p>
+                </NotAuthorized>
             </AuthorizeView>
         </CascadingAuthenticationState>
     </div>
@@ -63,22 +76,75 @@
 </div>
 
 @code {
-    private string AvatarUrl = ""; // Ganti dengan url gambar jika ada
     private string avatarUrl = "/assets/images/default-avatar.png";
-
     private string _activeItem = "dashboard";
-    private List<string> _expandedMenus = new(); // <-- default collapse
+    private List<string> _expandedMenus = new();
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Trigger GetAuthenticationStateAsync untuk memastikan state terupdate
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        StateHasChanged();
+    }
 
     private async Task LogoutAsync()
     {
-        await SignInManager.SignOutAsync();
-        NavManager.NavigateTo("/login", forceLoad: true);
-    }
+        try
+        {
+            isLoading = true;
+            Logger.LogInformation("Starting logout process");
 
+            HttpResponseMessage response = null;
+            try
+            {
+                response = await Http.PostAsync("/api/auth/logout", null);
+                if (response.IsSuccessStatusCode)
+                {
+                    Logger.LogInformation("Logout API call successful");
+                }
+                else
+                {
+                    Logger.LogWarning($"Logout API returned: {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Logout API call failed — proceeding to clear local session anyway");
+            }
+
+            // Ensure client-side session and authentication state are cleared
+            try
+            {
+                await AuthStateProvider.NotifyUserLogout();
+                Logger.LogInformation("Local session cleared via CustomAuthenticationStateProvider");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error while clearing local authentication state");
+            }
+
+            // Small delay to allow state propagation
+            await Task.Delay(300);
+
+            // Force full page reload to login page
+            NavManager.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, $"Logout error: {ex.Message}");
+            NavManager.NavigateTo("/login", forceLoad: true);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
     private List<MenuItem> MenuItems = new()
     {
-        new() { Id = "dashboard", Label = "Dashboard", IconName = "layout-dashboard", Color = "text-yellow-400" ,Url = "/dashboard"  },
-        new() { Id = "users", Label = "Users", IconName = "users", Color = "text-blue-400" , Url= "/users" },
+        new() { Id = "dashboard", Label = "Dashboard", IconName = "layout-dashboard", Color = "text-yellow-400", Url = "/dashboard" },
+        new() { Id = "users", Label = "Users", IconName = "users", Color = "text-blue-400", Url = "/users" },
         new() { 
             Id = "occupants-management", 
             Label = "Occupants Management", 
@@ -86,8 +152,8 @@
             Color = "text-orange-400", 
             Submenu = new()
             {
-                new() { Id = "occupants", Label = "Occupants", IconName = "calendar", Color = "text-teal-400", Url = "/occupants"},
-                new() { Id = "history", Label = "Histories", IconName = "calendar", Color = "text-teal-400", Url = "/occupant-history"},
+                new() { Id = "occupants", Label = "Occupants", IconName = "calendar", Color = "text-teal-400", Url = "/occupants" },
+                new() { Id = "history", Label = "Histories", IconName = "calendar", Color = "text-teal-400", Url = "/occupant-history" },
             }
         },
         new() { 
@@ -97,11 +163,11 @@
             Color = "text-orange-400", 
             Submenu = new()
             {
-                new() { Id = "visitors", Label = "Visitors", IconName = "user-check", Color = "text-teal-400", Url = "/visitors"},
-                new() { Id = "analytics", Label = "Analytics", IconName = "calendar", Color = "text-teal-400", Url = "/visitor-analytics"},
+                new() { Id = "visitors", Label = "Visitors", IconName = "user-check", Color = "text-teal-400", Url = "/visitors" },
+                new() { Id = "analytics", Label = "Analytics", IconName = "calendar", Color = "text-teal-400", Url = "/visitor-analytics" },
             }
         },
-        new() { Id = "employees", Label = "Employees", IconName = "briefcase", Color = "text-cyan-400", Url= "/employees" },
+        new() { Id = "employees", Label = "Employees", IconName = "briefcase", Color = "text-cyan-400", Url = "/employees" },
         new() { 
             Id = "building-management", 
             Label = "Building Management", 
@@ -109,13 +175,13 @@
             Color = "text-yellow-400",
             Submenu = new()
             {
-                new() { Id = "building", Label = "Building", IconName = "building", Color = "text-teal-400", Url = "/master-data/buildings"},
-                new() { Id = "rooms", Label = "Rooms", IconName = "settings", Color = "text-pink-400", Url= "/rooms" },
-                new() { Id = "maintenance-requests", Label = "Maintenance Requests", IconName = "clipboard-list", Color = "text-teal-400", Url = "/maintenance-requests"},
+                new() { Id = "building", Label = "Building", IconName = "building", Color = "text-teal-400", Url = "/master-data/buildings" },
+                new() { Id = "rooms", Label = "Rooms", IconName = "settings", Color = "text-pink-400", Url = "/rooms" },
+                new() { Id = "maintenance-requests", Label = "Maintenance Requests", IconName = "clipboard-list", Color = "text-teal-400", Url = "/maintenance-requests" },
                 new() { Id = "vendors", Label = "Vendors", IconName = "truck", Color = "text-teal-400", Url = "/vendors" },
             }
         },
-        new() { Id = "weapon-alus", Label = "Weapon and Alus", IconName = "shield", Color = "text-red-400", Url= "/weapon-alsus" },
+        new() { Id = "weapon-alus", Label = "Weapon and Alus", IconName = "shield", Color = "text-red-400", Url = "/weapon-alsus" },
         new() { 
             Id = "inventory-management", 
             Label = "Inventory Management", 
@@ -123,13 +189,13 @@
             Color = "text-indigo-400",
             Submenu = new()
             {
-                new() { Id = "inventories", Label = "Inventories", IconName = "package", Color = "text-teal-400", Url = "/inventories"},
-                new() { Id = "request-item", Label = "Request Item", IconName = "clipboard-list", Color = "text-teal-400", Url = "/inventory-checks"},
-                new() { Id = "histories", Label = "Histories", IconName = "clipboard-list", Color = "text-teal-400", Url = "/inventory-reports"},
+                new() { Id = "inventories", Label = "Inventories", IconName = "package", Color = "text-teal-400", Url = "/inventories" },
+                new() { Id = "request-item", Label = "Request Item", IconName = "clipboard-list", Color = "text-teal-400", Url = "/inventory-checks" },
+                new() { Id = "histories", Label = "Histories", IconName = "clipboard-list", Color = "text-teal-400", Url = "/inventory-reports" },
             }
         },
-        new() { Id = "access-control", Label = "Access Control", IconName = "key", Color = "text-emerald-400", Url= "/access-control" },
-        new() { Id = "access-menu", Label = "Access Menu", IconName = "key", Color = "text-emerald-400", Url= "/access-menu" },
+        new() { Id = "access-control", Label = "Access Control", IconName = "key", Color = "text-emerald-400", Url = "/access-control" },
+        new() { Id = "access-menu", Label = "Access Menu", IconName = "key", Color = "text-emerald-400", Url = "/access-menu" },
         new() { 
             Id = "master-data", 
             Label = "Master Data", 
@@ -137,17 +203,15 @@
             Color = "text-amber-400",
             Submenu = new()
             {
-                new() { Id = "position", Label = "Position", IconName = "briefcase", Color = "text-teal-400", Url = "/master-data/position"},
-                new() { Id = "role", Label = "Role", IconName = "shield", Color = "text-teal-400", Url = "/master-data/role"},
+                new() { Id = "position", Label = "Position", IconName = "briefcase", Color = "text-teal-400", Url = "/master-data/position" },
+                new() { Id = "role", Label = "Role", IconName = "shield", Color = "text-teal-400", Url = "/master-data/role" },
                 new() { Id = "user-type", Label = "User Type", IconName = "user-circle", Color = "text-teal-400", Url = "/master-data/user-type" },
                 new() { Id = "rank", Label = "Rank", IconName = "rank", Color = "text-teal-400", Url = "/master-data/rank" },
-                new() { Id = "building", Label = "Building", IconName = "building", Color = "text-teal-400", Url = "/master-data/buildings" },
                 new() { Id = "room-category", Label = "Room Category", IconName = "building", Color = "text-teal-400", Url = "/master-data/room-category" },
                 new() { Id = "room-status", Label = "Room Status", IconName = "building", Color = "text-teal-400", Url = "/master-data/room-status" },
                 new() { Id = "room-condition", Label = "Room Condition", IconName = "building", Color = "text-teal-400", Url = "/master-data/room-condition" },
                 new() { Id = "inventory-type", Label = "Inventory Type", IconName = "user-circle", Color = "text-teal-400", Url = "/master-data/inventory-type" },
                 new() { Id = "repository", Label = "Repository", IconName = "user-circle", Color = "text-teal-400", Url = "/master-data/repository" },
-            
             }
         }
     };
@@ -174,34 +238,32 @@
     private RenderFragment RenderMenuItem(MenuItem item, bool isSubmenu) => builder =>
     {
         builder.OpenElement(0, "div");
-        // Tombol utama
         builder.OpenElement(1, "button");
         builder.AddAttribute(2, "type", "button");
         builder.AddAttribute(3, "class", GetMenuItemClasses(item, isSubmenu));
         builder.AddAttribute(4, "onclick", EventCallback.Factory.Create(this, () => HandleMenuItemClick(item)));
 
         builder.OpenElement(5, "div");
-        builder.AddAttribute(6, "class", "flex items-center gap-4"); // Perlebar jarak icon dan text
+        builder.AddAttribute(6, "class", "flex items-center gap-3 flex-1 min-w-0");
         builder.AddContent(7, RenderIcon(item.IconName, GetIconClasses(item)));
         builder.OpenElement(8, "span");
-        builder.AddAttribute(9, "class", "text-white"); // Text menu putih
+        builder.AddAttribute(9, "class", "text-white truncate");
         builder.AddContent(10, item.Label);
-        builder.CloseElement(); // span
-        builder.CloseElement(); // flex
+        builder.CloseElement();
+        builder.CloseElement();
 
         if (HasSubmenu(item))
         {
             builder.OpenElement(11, "div");
-            builder.AddAttribute(12, "class", "ml-auto");
+            builder.AddAttribute(12, "class", "flex-shrink-0 ml-auto");
             builder.AddContent(13, _expandedMenus.Contains(item.Id)
                 ? RenderIcon("chevron-down", "w-4 h-4 text-gray-300")
                 : RenderIcon("chevron-right", "w-4 h-4 text-gray-300"));
             builder.CloseElement();
         }
 
-        builder.CloseElement(); // button
+        builder.CloseElement();
 
-        // Render submenu jika expanded
         if (HasSubmenu(item) && _expandedMenus.Contains(item.Id))
         {
             builder.OpenElement(14, "div");
@@ -213,22 +275,21 @@
             builder.CloseElement();
         }
 
-        builder.CloseElement(); // wrapper
+        builder.CloseElement();
     };
 
     private string GetMenuItemClasses(MenuItem item, bool isSubmenu)
     {
-        var classes = "flex items-center justify-between px-4 py-3 cursor-pointer transition-all duration-200 hover:bg-white/10 rounded-lg mx-2";
+        var classes = "w-full flex items-center justify-between px-4 py-2.5 cursor-pointer transition-all duration-200 hover:bg-white/10 rounded-lg text-sm";
         
         if (_activeItem == item.Id)
         {
-            @* classes += " bg-white/20"; *@
-            classes += " bg-black/30";
+            classes += " bg-black/30 border-l-4 border-yellow-400";
         }
         
         if (isSubmenu)
         {
-            classes += " ml-4 pl-8";
+            classes += " text-gray-300 hover:text-white";
         }
         
         return classes;
@@ -249,7 +310,7 @@
 
     private string GetIconClasses(MenuItem item)
     {
-        var classes = "w-5 h-5 transition-all duration-200";
+        var classes = "w-5 h-5 flex-shrink-0 transition-all duration-200";
 
         if (_activeItem == item.Id)
         {
@@ -257,7 +318,6 @@
         }
         else
         {
-            // Pastikan tetap ada prefix "text-"
             classes += $" text-gray-400 group-hover:{item.Color}";
         }
 
@@ -270,19 +330,18 @@
     }
 
     private void HandleMenuItemClick(MenuItem item)
-{
-    SetActiveItem(item.Id);
-
-    if (HasSubmenu(item))
     {
-        ToggleSubmenu(item.Id);
-    }
-    else if (!string.IsNullOrEmpty(item.Url))
-    {
-        NavManager.NavigateTo(item.Url);
-    }
-}
+        SetActiveItem(item.Id);
 
+        if (HasSubmenu(item))
+        {
+            ToggleSubmenu(item.Id);
+        }
+        else if (!string.IsNullOrEmpty(item.Url))
+        {
+            NavManager.NavigateTo(item.Url);
+        }
+    }
 
     private RenderFragment RenderIcon(string iconName, string classes) => @<svg class="@classes" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         @switch (iconName)
@@ -331,16 +390,18 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                 break;
             case "user-circle":
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M5.121 17.804A10 10 0 1119 12a10 10 0 01-13.879 5.804zM15 11a4 4 0 10-6 0 4 4 0 006 0z"></path>
-    break;
-
-case "user-cog":
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M19.4 15a1.65 1.65 0 01.33 1.82l-.84 1.45a1.65 1.65 0 01-1.41.83h-1.68a1.65 1.65 0 01-1.41-.83l-.84-1.45a1.65 1.65 0 01.33-1.82l1.2-1.2a1.65 1.65 0 011.82-.33l1.45.84a1.65 1.65 0 01.83 1.41v1.68"></path>
-    break;
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A10 10 0 1119 12a10 10 0 01-13.879 5.804zM15 11a4 4 0 10-6 0 4 4 0 006 0z"></path>
+                break;
         }
     </svg>;
+
+    public class MenuItem
+    {
+        public string? Id { get; set; }
+        public string? Label { get; set; }
+        public string? IconName { get; set; }
+        public string? Color { get; set; }
+        public string? Url { get; set; }
+        public List<MenuItem>? Submenu { get; set; }
+    }
 }

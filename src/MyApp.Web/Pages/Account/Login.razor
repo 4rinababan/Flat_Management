@@ -1,13 +1,18 @@
 @page "/login"
-@inject SignInManager<ApplicationUser> SignInManager
-@inject NavigationManager Navigation
-@inject ToastService ToastService
-
 @layout AuthLayout
 
-@using System.Threading.Tasks
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Authorization
+@using MyApp.Core.Domain
 @using MyApp.Infrastructure.Identity
+@using MyApp.Web.Authentication
+@using static System.Net.WebRequestMethods
+
+@inject CustomAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@inject ToastService ToastService
+@inject HttpClient Http
+@inject ILogger<Login> Logger
 
 <section class="bg-gradient-to-b from-red-700 to-black dark:bg-gray-900">
     <div class="flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
@@ -29,7 +34,8 @@
                                    id="username" 
                                    type="text"
                                    class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                   placeholder="Username" />
+                                   placeholder="Username or Email"
+                                   disabled="@isLoading" />
                         <ValidationMessage For="@(() => loginModel.UserName)" class="text-red-500 text-sm mt-1" />
                     </div>
                     
@@ -40,12 +46,14 @@
                                        id="password"
                                        type="@(_showPassword ? "text" : "password")"
                                        class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 pr-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                                       placeholder="Password" />
+                                       placeholder="Password"
+                                       disabled="@isLoading" />
                             
                             <button type="button" 
                                     @onclick="TogglePassword" 
                                     aria-label="Toggle password visibility"
-                                    class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-black transition-colors duration-200">
+                                    disabled="@isLoading"
+                                    class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-black transition-colors duration-200 disabled:opacity-50">
                                 @if (_showPassword)
                                 {
                                     <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -67,8 +75,11 @@
                     <div class="flex items-center">
                         <InputCheckbox @bind-Value="loginModel.RememberMe" 
                                        id="rememberMe" 
-                                       class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
-                        <label for="rememberMe" class="ml-2 text-sm font-medium text-gray-300">Remember me</label>
+                                       class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                       disabled="@isLoading" />
+                        <label for="rememberMe" class="ml-2 text-sm font-medium text-gray-300">
+                            Remember me (1 day)
+                        </label>
                     </div>
 
                     <button type="submit"
@@ -76,7 +87,13 @@
                             class="w-full p-2.5 mt-5 text-white bg-yellow-500 hover:bg-green-500 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg px-5 py-2.5 text-center transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
                         @if (isLoading)
                         {
-                            <span>Logging in...</span>
+                            <span class="flex items-center justify-center gap-2">
+                                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Logging in...
+                            </span>
                         }
                         else
                         {
@@ -97,74 +114,90 @@
 </section>
 
 @code {
-    private LoginRequest loginModel = new();
+    private LoginModel loginModel = new();
     private string ErrorMessage = "";
     private bool _showPassword = false;
     private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuthenticated = await AuthStateProvider.IsAuthenticatedAsync();
+        if (isAuthenticated)
+        {
+            Logger.LogInformation("User already authenticated, redirecting to home");
+            Navigation.NavigateTo("/", replace: true);
+        }
+    }
 
     private async Task LoginAsync()
     {
         ErrorMessage = "";
         isLoading = true;
+        StateHasChanged();
         
         try
         {
-            // Validasi input
-            if (string.IsNullOrWhiteSpace(loginModel.UserName))
+            // Input validation
+            if (string.IsNullOrWhiteSpace(loginModel.UserName) || string.IsNullOrWhiteSpace(loginModel.Password))
             {
-                ErrorMessage = "Username is required";
+                ErrorMessage = "Username and password are required";    
                 ToastService?.ShowWarning(ErrorMessage);
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(loginModel.Password))
+            // Call Auth API endpoint
+            var loginRequest = new LoginModel
             {
-                ErrorMessage = "Password is required";
-                ToastService?.ShowWarning(ErrorMessage);
-                return;
-            }
+                UserName = loginModel.UserName,
+                Password = loginModel.Password,
+                RememberMe = loginModel.RememberMe
+            };
 
-            // Login menggunakan SignInManager dari ASP.NET Identity
-            var result = await SignInManager.PasswordSignInAsync(
-                loginModel.UserName,
-                loginModel.Password,
-                isPersistent: loginModel.RememberMe,
-                lockoutOnFailure: true);
+            var response = await Http.PostAsJsonAsync("api/auth/login", loginRequest);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var loginResponse = await response.Content.ReadFromJsonAsync<LoginResponse>();
+                
+                if (loginResponse?.Success == true)
+                {
+                    // Create user session
+                    var userSession = new UserSession
+                    {
+                        Username = loginResponse.UserName!,
+                        Email = loginResponse.Email,
+                        ExpiresAt = loginModel.RememberMe ? 
+                            DateTime.UtcNow.AddDays(1) : DateTime.UtcNow.AddHours(1)
+                    };
 
-            if (result.Succeeded)
-            {
-                ToastService?.ShowSuccess($"Login success, Welcome: {loginModel.UserName}");
-                Navigation.NavigateTo("/", forceLoad: true);
-            }
-            else if (result.IsLockedOut)
-            {
-                ErrorMessage = "User account is locked. Please try again later.";
-                ToastService?.ShowWarning(ErrorMessage);
-            }
-            else if (result.RequiresTwoFactor)
-            {
-                // Redirect ke 2FA page jika diperlukan
-                Navigation.NavigateTo($"/login-with-2fa?returnUrl=");
-            }
-            else if (result.IsNotAllowed)
-            {
-                ErrorMessage = "User account is not allowed to sign in. Please verify your email.";
+                    // Update authentication state
+                    await AuthStateProvider.NotifyUserAuthentication(userSession);
+                    
+                    ToastService?.ShowSuccess($"Welcome back, {loginResponse.UserName}!");
+                    Navigation.NavigateTo(loginResponse.RedirectUrl, forceLoad: true);
+                    return;
+                }
+                
+                ErrorMessage = loginResponse?.Message ?? "Login failed";
                 ToastService?.ShowWarning(ErrorMessage);
             }
             else
             {
-                ErrorMessage = "Invalid username or password";
+                var loginResponse = await response.Content.ReadFromJsonAsync<LoginResponse>();
+                ErrorMessage = loginResponse?.Message ?? "Invalid username or password";
                 ToastService?.ShowWarning(ErrorMessage);
             }
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"An error occurred: {ex.Message}";
+            ErrorMessage = "An unexpected error occurred. Please try again.";
             ToastService?.ShowError(ErrorMessage);
+            Logger.LogError(ex, $"Unexpected error during login for user {loginModel.UserName}");
         }
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -173,10 +206,20 @@
         _showPassword = !_showPassword;
     }
 
-    public class LoginRequest
+    private class LoginModel
     {
         public string UserName { get; set; } = "";
         public string Password { get; set; } = "";
         public bool RememberMe { get; set; } = false;
+    }
+
+    private class LoginResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = "";
+        public string RedirectUrl { get; set; } = "/";
+        public string? UserName { get; set; }
+        public string? Email { get; set; }
+        public bool RequiresTwoFactor { get; set; }
     }
 }

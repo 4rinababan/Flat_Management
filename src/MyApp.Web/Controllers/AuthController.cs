@@ -1,113 +1,328 @@
+using DocumentFormat.OpenXml.Math;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using MyApp.Infrastructure.Identity;
-using MyApp.Core.Entities;
-using MyApp.Core.Interfaces;
+using MyApp.Shared.Models;
+using System.Security.Claims;
 
 namespace MyApp.Web.Controllers
 {
     [ApiController]
-[Route("api/[controller]")]
-public class AuthController : ControllerBase
-{
-    private readonly SignInManager<ApplicationUser> _signInManager;
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IUserRepository _userRepository;
-
-    public AuthController(SignInManager<ApplicationUser> signInManager,
-                          UserManager<ApplicationUser> userManager,
-                          IUserRepository userRepository)
+    [Route("api/[controller]")]
+    public class AuthController : ControllerBase
     {
-        _signInManager = signInManager;
-        _userManager = userManager;
-        _userRepository = userRepository;
-    }
+        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly RoleManager<IdentityRole<int>> _roleManager;
+        private readonly ILogger<AuthController> _logger;
 
-    [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
-    {
-        // 1. Ambil user dari domain repository
-        var domainUser = await _userRepository.GetByUserNameAsync(request.UserName);
-        if (domainUser == null)
-            return Unauthorized(new { Message = "User not exist" });
-
-        // 2. Cari Identity user
-        var identityUser = await _userManager.FindByNameAsync(request.UserName);
-        if (identityUser == null)
+        public AuthController(
+            SignInManager<ApplicationUser> signInManager,
+            UserManager<ApplicationUser> userManager,
+            RoleManager<IdentityRole<int>> roleManager,
+            ILogger<AuthController> logger)
         {
-            // Jika belum ada di Identity, otomatis buat
-            identityUser = new ApplicationUser
-            {
-                UserName = domainUser.UserName,
-                Email = domainUser.Email
-            };
-            var identityResult = await _userManager.CreateAsync(identityUser, "DefaultPassword123!"); 
-            // bisa ganti dengan domainUser.PasswordHash jika sudah hashed
-            if (!identityResult.Succeeded)
-                return BadRequest(identityResult.Errors);
+            _signInManager = signInManager;
+            _userManager = userManager;
+            _roleManager = roleManager;
+            _logger = logger;
         }
 
-        // 3. Login via Identity
-        var result = await _signInManager.PasswordSignInAsync(identityUser, request.Password, true, false);
-        if (!result.Succeeded)
-            return Unauthorized(new { Message = "Password wrong" });
-
-        return Ok(new { Message = "Login success" });
-    }
-
-    [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
-    {
-        // 1. Cek domain repository dulu
-        var exists = await _userRepository.GetByUserNameAsync(request.UserName);
-        if (exists != null)
-            return BadRequest(new { Message = "Username already exists" });
-
-        // 2. Buat Identity user
-        var identityUser = new ApplicationUser
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            UserName = request.UserName,
-            Email = request.Email
-        };
-        var result = await _userManager.CreateAsync(identityUser, request.Password);
-        if (!result.Succeeded)
-            return BadRequest(result.Errors);
+            try
+            {
+                _logger.LogInformation($"Login attempt for user: {request.UserName}");
 
-        // 3. Simpan di domain repository
-        var domainUser = new User
+                // Validasi input
+                if (string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrWhiteSpace(request.Password))
+                {
+                    _logger.LogWarning("Login attempt with empty credentials");
+                    return BadRequest(new LoginResponse 
+                    { 
+                        Success = false, 
+                        Message = "Username and password are required" 
+                    });
+                }
+
+                // Cari user berdasarkan username atau email
+                var user = await _userManager.FindByNameAsync(request.UserName) 
+                           ?? await _userManager.FindByEmailAsync(request.UserName);
+
+                if (user == null)
+                {
+                    _logger.LogWarning($"Login attempt with non-existent user: {request.UserName}");
+                    return Unauthorized(new LoginResponse 
+                    { 
+                        Success = false, 
+                        Message = "Invalid username or password" 
+                    });
+                }
+
+                // Cek apakah user aktif
+                if (!user.IsActive)
+                {
+                    _logger.LogWarning($"Login attempt for inactive user: {user.UserName} (ID: {user.Id})");
+                    return Unauthorized(new LoginResponse 
+                    { 
+                        Success = false, 
+                        Message = "User account is inactive. Please contact administrator." 
+                    });
+                }
+
+                // SIGN OUT dulu jika ada session lama
+                await _signInManager.SignOutAsync();
+                _logger.LogInformation($"Cleared any existing session for user: {user.UserName}");
+
+                // Set explicit authentication properties
+                var authProperties = new AuthenticationProperties
+                {
+                    IsPersistent = request.RememberMe,
+                    ExpiresUtc = DateTimeOffset.UtcNow.AddDays(1)
+                };
+
+                // Attempt sign in dengan EXPLICIT authentication properties
+                var result = await _signInManager.PasswordSignInAsync(
+                    user.UserName!,
+                    request.Password,
+                    isPersistent: request.RememberMe,
+                    lockoutOnFailure: true);
+
+                _logger.LogInformation($"SignIn result for {user.UserName}: Succeeded={result.Succeeded}, IsLockedOut={result.IsLockedOut}, RequiresTwoFactor={result.RequiresTwoFactor}");
+
+                if (result.Succeeded)
+                {
+                    _logger.LogInformation($"✅ User {user.UserName} logged in successfully");
+
+                    user.UpdatedAt = DateTime.UtcNow;
+                    await _userManager.UpdateAsync(user);
+
+                    return Ok(new LoginResponse
+                    {
+                        Success = true,
+                        Message = "Login successful",
+                        RedirectUrl = "/",
+                        UserName = user.UserName,
+                        Email = user.Email
+                    });
+                }
+                else if (result.IsLockedOut)
+                {
+                    _logger.LogWarning($"User {user.UserName} account is locked out");
+                    return Unauthorized(new LoginResponse 
+                    { 
+                        Success = false, 
+                        Message = "Account is locked due to multiple failed login attempts. Please try again later." 
+                    });
+                }
+                else if (result.RequiresTwoFactor)
+                {
+                    _logger.LogInformation($"User {user.UserName} requires two-factor authentication");
+                    return Ok(new LoginResponse 
+                    { 
+                        Success = false, 
+                        Message = "Two-factor authentication required",
+                        RequiresTwoFactor = true
+                    });
+                }
+                else
+                {
+                    _logger.LogWarning($"Failed login attempt for user {request.UserName} - Invalid password");
+                    return Unauthorized(new LoginResponse 
+                    { 
+                        Success = false, 
+                        Message = "Invalid username or password" 
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"❌ Login error for user {request.UserName}: {ex.Message}\nStackTrace: {ex.StackTrace}");
+                return StatusCode(500, new LoginResponse 
+                { 
+                    Success = false, 
+                    Message = "An error occurred during login. Please try again later." 
+                });
+            }
+        }
+
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
         {
-            UserName = request.UserName,
-            Email = request.Email,
-            PasswordHash = identityUser.PasswordHash ?? "",
-            RoleId = request.RoleId,
-            IsActive = true,
-            CreatedBy = "system"
-        };
-        await _userRepository.AddAsync(domainUser);
+            try
+            {
+                var userName = User.Identity?.Name ?? "Unknown";
 
-        return Ok(new { Message = "Registrasi berhasil" });
+                if (_signInManager.IsSignedIn(User))
+                {
+                    await _signInManager.SignOutAsync();
+                }
+
+                return Ok(new 
+                { 
+                    Success = true, 
+                    Message = "Logout successful" 
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Logout error: {ex.Message}");
+                return StatusCode(500, new 
+                { 
+                    Success = false, 
+                    Message = "An error occurred during logout" 
+                });
+            }
+        }
+
+        [HttpGet("check-auth")]
+        public async Task<IActionResult> CheckAuth()
+        {
+            try
+            {
+                _logger.LogInformation($"CheckAuth called - IsAuthenticated: {User?.Identity?.IsAuthenticated}, User: {User?.Identity?.Name}");
+                
+                var isAuthenticated = User?.Identity?.IsAuthenticated ?? false;
+                
+                if (isAuthenticated && !string.IsNullOrEmpty(User.Identity.Name))
+                {
+                    var user = await _userManager.FindByNameAsync(User.Identity.Name);
+                    if (user != null)
+                    {
+                        var roles = await _userManager.GetRolesAsync(user);
+                        
+                        return Ok(new 
+                        { 
+                            IsAuthenticated = true,
+                            UserName = user.UserName,
+                            Email = user.Email,
+                            Roles = roles
+                        });
+                    }
+                }
+                
+                return Ok(new 
+                { 
+                    IsAuthenticated = false
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking authentication status");
+                return Ok(new { IsAuthenticated = false });
+            }
+        }
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.UserName) || 
+                    string.IsNullOrWhiteSpace(request.Email) || 
+                    string.IsNullOrWhiteSpace(request.Password))
+                {
+                    return BadRequest(new 
+                    { 
+                        Success = false, 
+                        Message = "Username, email, and password are required" 
+                    });
+                }
+
+                var existingUser = await _userManager.FindByNameAsync(request.UserName);
+                if (existingUser != null)
+                {
+                    return BadRequest(new 
+                    { 
+                        Success = false, 
+                        Message = "Username already exists" 
+                    });
+                }
+
+                var existingEmail = await _userManager.FindByEmailAsync(request.Email);
+                if (existingEmail != null)
+                {
+                    return BadRequest(new 
+                    { 
+                        Success = false, 
+                        Message = "Email already exists" 
+                    });
+                }
+
+                var identityUser = new ApplicationUser
+                {
+                    UserName = request.UserName,
+                    Email = request.Email,
+                    EmailConfirmed = false,
+                    IsActive = true,
+                };
+
+                var result = await _userManager.CreateAsync(identityUser, request.Password);
+                if (!result.Succeeded)
+                {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    return BadRequest(new 
+                    { 
+                        Success = false, 
+                        Message = $"Registration failed: {errors}" 
+                    });
+                }
+
+                // Assign role
+                if (request.RoleId > 0)
+                {
+                    var role = await _roleManager.FindByIdAsync(request.RoleId.ToString());
+                    if (role != null)
+                    {
+                        await _userManager.AddToRoleAsync(identityUser, role.Name!);
+                    }
+                }
+                else
+                {
+                    var defaultRole = await _roleManager.FindByNameAsync("User");
+                    if (defaultRole != null)
+                    {
+                        await _userManager.AddToRoleAsync(identityUser, "User");
+                    }
+                }
+
+                _logger.LogInformation($"New user registered: {request.UserName}");
+                
+                return Ok(new 
+                { 
+                    Success = true, 
+                    Message = "Registration successful. Please login." 
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Registration error: {ex.Message}");
+                return StatusCode(500, new 
+                { 
+                    Success = false, 
+                    Message = "An error occurred during registration" 
+                });
+            }
+        }
     }
 
-    [HttpPost("logout")]
-    public async Task<IActionResult> Logout()
+    public class RegisterRequest
     {
-        await _signInManager.SignOutAsync();
-        return Ok(new { Message = "Logout success" });
+        public string UserName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+        public int RoleId { get; set; } = 0;
     }
-}
 
-public class LoginRequest
-{
-    public string UserName { get; set; } = "";
-    public string Password { get; set; } = "";
-}
-
-public class RegisterRequest
-{
-    public string UserName { get; set; } = "";
-    public string Email { get; set; } = "";
-    public string Password { get; set; } = "";
-    public int RoleId { get; set; }
-}
-
+    public class LoginResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = "";
+        public string RedirectUrl { get; set; } = "/";
+        public string? UserName { get; set; }
+        public string? Email { get; set; }
+        public bool RequiresTwoFactor { get; set; }
+    }
 }
