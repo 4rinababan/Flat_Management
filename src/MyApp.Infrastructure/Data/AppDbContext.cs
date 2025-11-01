@@ -1,15 +1,18 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using MyApp.Core.Entities;
+using MyApp.Infrastructure.Identity;
 
 namespace MyApp.Infrastructure.Data
 {
-    public class AppDbContext : DbContext
+    public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>, int>
     {
         public AppDbContext(DbContextOptions<AppDbContext> options)
             : base(options) { }
 
-        public DbSet<User> Users { get; set; }
-
+        // Identity entities sudah otomatis dari IdentityDbContext
+        // AspNetUsers, AspNetRoles, AspNetUserClaims, AspNetUserRoles, AspNetRoleClaims, AspNetUserLogins, AspNetUserTokens
 
         public DbSet<FileUpload> Files { get; set; } = default!;
         public DbSet<Position> Positions { get; set; } = default!;
@@ -33,6 +36,8 @@ namespace MyApp.Infrastructure.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder); // Penting! untuk Identity configuration
+
             // Atur kolom binary agar bisa menampung file besar
             modelBuilder.Entity<Occupant>()
                 .Property(o => o.DocumentData)
@@ -43,7 +48,6 @@ namespace MyApp.Infrastructure.Data
                 .HasColumnType("LONGBLOB");
 
             // Pastikan semua Id auto increment
-            modelBuilder.Entity<User>().Property(u => u.Id).ValueGeneratedOnAdd();
             modelBuilder.Entity<FileUpload>().Property(f => f.Id).ValueGeneratedOnAdd();
             modelBuilder.Entity<Position>().Property(p => p.Id).ValueGeneratedOnAdd();
             modelBuilder.Entity<Role>().Property(r => r.Id).ValueGeneratedOnAdd();

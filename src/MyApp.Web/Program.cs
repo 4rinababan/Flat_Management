@@ -24,11 +24,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Identity pakai SQL Server (boleh juga MySQL, asal konsisten)
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))));
-
 // // Add Identity
 // builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
 // {
@@ -54,7 +49,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
 
     options.SignIn.RequireConfirmedAccount = false;
 })
-.AddEntityFrameworkStores<ApplicationDbContext>()
+.AddEntityFrameworkStores<AppDbContext>()  // Ubah ke AppDbContext
 .AddDefaultTokenProviders();
 
 builder.Services.ConfigureApplicationCookie(options =>
@@ -65,7 +60,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.Name = "MyApp.Auth";
     options.Cookie.HttpOnly = true;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SameSite = SameSiteMode.Lax; // Ubah dari None ke Lax untuk development
     options.ExpireTimeSpan = TimeSpan.FromHours(2);
     options.SlidingExpiration = true;
 });
@@ -84,7 +79,8 @@ builder.Services.AddStackExchangeRedisCache(options =>
 // ======================================================
 // DEPENDENCY INJECTION REPOSITORIES
 // ======================================================
-builder.Services.AddScoped<IUserRepository, UserRepository>();
+// Hapus atau comment IUserRepository jika hanya untuk custom User table
+// builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPositionRepository, PositionRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IUserTypeRepository, UserTypeRepository>();
@@ -159,38 +155,55 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<AppDbContext>();
-        var userRepo = services.GetRequiredService<IUserRepository>();
-        var roleRepo = services.GetRequiredService<IRoleRepository>();
-        var config = services.GetRequiredService<IConfiguration>();
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole<int>>>();
 
         context.Database.Migrate();
 
-        // --- Seed Role Admin ---
-        const string adminRoleName = "Admin";
-        var adminRole = await roleRepo.GetByNameAsync(adminRoleName);
-        if (adminRole == null)
+        // --- Seed Identity Roles ---
+        var adminRoleName = "Admin";
+        var managerRoleName = "Manager";
+        var userRoleName = "User";
+
+        foreach (var roleName in new[] { adminRoleName, managerRoleName, userRoleName })
         {
-            adminRole = new MyApp.Core.Entities.Role { RoleName = adminRoleName };
-            await roleRepo.AddAsync(adminRole);
+            var roleExists = await roleManager.FindByNameAsync(roleName);
+            if (roleExists == null)
+            {
+                var result = await roleManager.CreateAsync(new IdentityRole<int> { Name = roleName });
+                if (!result.Succeeded)
+                {
+                    var logger = services.GetRequiredService<ILogger<Program>>();
+                    logger.LogError($"Failed to create role: {roleName}");
+                }
+            }
         }
 
-        // --- Seed User Admin ---
-        var adminUserName = config["AdminUser:UserName"];
-        var adminUser = await userRepo.GetByUserNameAsync(adminUserName);
+        // --- Seed Identity Admin User ---
+        var config = services.GetRequiredService<IConfiguration>();
+        var adminUserName = config["AdminUser:UserName"] ?? "admin";
+        var adminEmail = config["AdminUser:Email"] ?? "admin@example.com";
+        var adminPassword = config["AdminUser:Password"] ?? "Admin@123";
+
+        var adminUser = await userManager.FindByNameAsync(adminUserName);
         if (adminUser == null)
         {
-            var newUser = new MyApp.Core.Entities.User
+            adminUser = new ApplicationUser
             {
                 UserName = adminUserName,
-                Email = config["AdminUser:Email"],
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(config["AdminUser:Password"]),
-                RoleId = adminRole.Id,
-                IsActive = true,
-                CreatedBy = "System",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                Email = adminEmail,
+                EmailConfirmed = true
             };
-            await userRepo.AddAsync(newUser);
+            var result = await userManager.CreateAsync(adminUser, adminPassword);
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(adminUser, adminRoleName);
+            }
+            else
+            {
+                var logger = services.GetRequiredService<ILogger<Program>>();
+                logger.LogError($"Failed to create admin user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
         }
     }
     catch (Exception ex)

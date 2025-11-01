@@ -1,6 +1,10 @@
 @using MyApp.Web.Shared.Components
 @using System.Collections.Generic
+@using Microsoft.AspNetCore.Identity
+@using MyApp.Infrastructure.Identity
+
 @inject NavigationManager NavManager
+@inject SignInManager<ApplicationUser> SignInManager
 
 
 <div class="w-70 min-h-screen max-h-screen overflow-y-auto 
@@ -33,6 +37,29 @@
             </div>
         }
     </div>
+
+    <!-- Logout Section -->
+    <div class="border-t border-gray-700 p-4 mt-auto">
+        <CascadingAuthenticationState>
+            <AuthorizeView>
+                <Authorized>
+                    <div class="mb-2 text-xs text-gray-400">
+                        Logged in as: <span class="text-white font-semibold">@context.User.Identity?.Name</span>
+                    </div>
+                    <button @onclick="LogoutAsync"
+                            class="w-full flex items-center justify-between px-4 py-3 cursor-pointer transition-all duration-200 hover:bg-white/10 rounded-lg mx-2 bg-red-600 hover:bg-red-700 text-white font-medium">
+                        <div class="flex items-center gap-4">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                            </svg>
+                            <span>Logout</span>
+                        </div>
+                    </button>
+                </Authorized>
+            </AuthorizeView>
+        </CascadingAuthenticationState>
+    </div>
+
 </div>
 
 @code {
@@ -41,6 +68,12 @@
 
     private string _activeItem = "dashboard";
     private List<string> _expandedMenus = new(); // <-- default collapse
+
+    private async Task LogoutAsync()
+    {
+        await SignInManager.SignOutAsync();
+        NavManager.NavigateTo("/login", forceLoad: true);
+    }
 
     private List<MenuItem> MenuItems = new()
     {
