@@ -11,13 +11,13 @@
 @inject HttpClient Http
 @inject ILogger<Sidebar> Logger
 
-<div class="flex flex-col h-screen w-70 bg-gradient-to-b from-red-800 to-black">
+<div class="flex flex-col h-screen w-64 lg:w-72 bg-gradient-to-b from-red-800 to-black">
     <!-- Logo Section -->
-    <div class="flex-shrink-0 flex flex-col items-center py-6 px-4 border-b border-gray-700">
+    <div class="flex-shrink-0 flex flex-col items-center py-4 lg:py-6 px-3 lg:px-4 border-b border-gray-700">
         <label class="flex flex-col items-center cursor-pointer">
             <!-- Avatar -->
             <img src="@avatarUrl" alt="App Logo"
-                 class="w-32 h-32 rounded-full border-2 border-blue shadow-md mb-3 object-cover" />
+                 class="w-24 h-24 lg:w-32 lg:h-32 rounded-full border-2 border-blue shadow-md mb-3 object-cover" />
 
             <!-- InputFile tersembunyi; klik label memicu input ini -->
             <InputFile OnChange="HandleSelected" class="hidden" />
@@ -30,7 +30,7 @@
     </div>
 
     <!-- Menu Items - Scrollable -->
-    <div class="flex-1 overflow-y-auto py-4 space-y-1 px-2">
+    <div class="flex-1 overflow-y-auto py-3 lg:py-4 space-y-1 px-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
         @foreach (var item in MenuItems)
         {
             <div class="group">
@@ -40,11 +40,11 @@
     </div>
 
     <!-- Logout Section - Sticky at bottom -->
-    <div class="flex-shrink-0 border-t border-gray-700 p-4 bg-black/50">
+    <div class="flex-shrink-0 border-t border-gray-700 p-3 lg:p-4 bg-black/50">
         <CascadingAuthenticationState>
             <AuthorizeView>
                 <Authorized>
-                    <div class="mb-3 text-xs text-gray-400 px-2">
+                    <div class="mb-2 lg:mb-3 text-2xs lg:text-xs text-gray-400 px-2">
                         Logged in as: <span class="text-white font-semibold block truncate">@context.User.Identity?.Name</span>
                     </div>
                     <button @onclick="LogoutAsync"
@@ -110,7 +110,7 @@
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Logout API call failed — proceeding to clear local session anyway");
+                Logger.LogWarning(ex, "Logout API call failed ï¿½ proceeding to clear local session anyway");
             }
 
             // Ensure client-side session and authentication state are cleared
@@ -280,7 +280,7 @@
 
     private string GetMenuItemClasses(MenuItem item, bool isSubmenu)
     {
-        var classes = "w-full flex items-center justify-between px-4 py-2.5 cursor-pointer transition-all duration-200 hover:bg-white/10 rounded-lg text-sm";
+        var classes = "w-full flex items-center justify-between px-3 lg:px-4 py-2 lg:py-2.5 cursor-pointer transition-all duration-200 hover:bg-white/10 rounded-lg text-xs lg:text-sm";
         
         if (_activeItem == item.Id)
         {
@@ -289,7 +289,7 @@
         
         if (isSubmenu)
         {
-            classes += " text-gray-300 hover:text-white";
+            classes += " text-gray-300 hover:text-white pl-2";
         }
         
         return classes;
@@ -310,7 +310,7 @@
 
     private string GetIconClasses(MenuItem item)
     {
-        var classes = "w-5 h-5 flex-shrink-0 transition-all duration-200";
+        var classes = "w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0 transition-all duration-200";
 
         if (_activeItem == item.Id)
         {
