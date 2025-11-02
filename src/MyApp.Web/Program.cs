@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using MyApp.Infrastructure;
 using MyApp.Infrastructure.Data;
 using MyApp.Infrastructure.Identity;
@@ -122,6 +123,63 @@ builder.Services.AddControllers();
 // BUILD APP
 // ======================================================
 var app = builder.Build();
+
+// ======================================================
+// DATABASE MIGRATION & SEEDING
+// ======================================================
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<AppDbContext>();
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole<int>>>();
+        var config = services.GetRequiredService<IConfiguration>();
+
+        context.Database.Migrate();
+
+        // --- Seed Role Admin ---
+        const string adminRoleName = "Admin";
+        var adminRoleExists = await roleManager.RoleExistsAsync(adminRoleName);
+        if (!adminRoleExists)
+        {
+            await roleManager.CreateAsync(new IdentityRole<int>(adminRoleName));
+        }
+
+        // --- Seed User Admin ---
+        var adminUserName = config["AdminUser:UserName"] ?? throw new Exception("AdminUser:UserName not configured");
+        var adminEmail = config["AdminUser:Email"] ?? throw new Exception("AdminUser:Email not configured");
+        var adminPassword = config["AdminUser:Password"] ?? throw new Exception("AdminUser:Password not configured");
+
+        var adminUser = await userManager.FindByNameAsync(adminUserName);
+        if (adminUser == null)
+        {
+            var newUser = new ApplicationUser
+            {
+                UserName = adminUserName,
+                Email = adminEmail,
+                EmailConfirmed = true
+            };
+
+            var result = await userManager.CreateAsync(newUser, adminPassword);
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(newUser, adminRoleName);
+            }
+            else
+            {
+                throw new Exception($"Failed to create admin user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Database seeding failed");
+    }
+}
+
 
 // ======================================================
 // MIDDLEWARE CONFIGURATION
