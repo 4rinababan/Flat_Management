@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MyApp.Core.Interfaces;
 using MyApp.Infrastructure.Data;
 using MyApp.Infrastructure.Redis;
+using MyApp.Infrastructure.Repositories.Services;
 using MyApp.Infrastructure.Services;
 using StackExchange.Redis;
 
@@ -15,8 +16,18 @@ namespace MyApp.Infrastructure
         {
             // Register MySQL
             services.AddDbContext<AppDbContext>(options =>
-                options.UseMySql(configuration.GetConnectionString("DefaultConnection"),
-                    ServerVersion.AutoDetect(configuration.GetConnectionString("DefaultConnection"))));
+            {
+                var connectionString = configuration.GetConnectionString("DefaultConnection");
+                options.UseMySql(connectionString,
+                    ServerVersion.AutoDetect(connectionString),
+                    mySqlOptions =>
+                    {
+                        mySqlOptions.EnableRetryOnFailure(
+                            maxRetryCount: 3,
+                            maxRetryDelay: TimeSpan.FromSeconds(5),
+                            errorNumbersToAdd: null);
+                    });
+            }, ServiceLifetime.Scoped);
 
             // Register Redis Connection
             services.AddSingleton<IConnectionMultiplexer>(sp =>
@@ -53,6 +64,10 @@ namespace MyApp.Infrastructure
             services.AddScoped<IRepositoryRepository, RepositoryRepository>();
             services.AddScoped<IInventoryRepository, InventoryRepository>();
             services.AddScoped<IMenuService, MenuService>();
+            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IUserRoleService, UserRoleService>();
+            services.AddScoped<IMenuPermissionService, MenuPermissionService>();
+            services.AddScoped<IIdentityRoleService, IdentityRoleService>();
 
             return services;
         }
