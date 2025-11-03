@@ -1,14 +1,19 @@
 @page "/login"
-@inject HttpClient Http
-@inject NavigationManager Navigation
-@inject CustomAuthenticationStateProvider AuthProvider
-
 @layout AuthLayout
 
-@inject ToastService ToastService
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Authorization
+@using MyApp.Core.Domain
+@using MyApp.Infrastructure.Identity
+@using MyApp.Shared.Models
+@using MyApp.Web.Authentication
+@using static System.Net.WebRequestMethods
 
-@using System.Net.Http.Json
-@using System.Security.Claims
+@inject CustomAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@inject ToastService ToastService
+@inject HttpClient Http
+@inject ILogger<Login> Logger
 
 <section class="bg-gradient-to-b from-red-700 to-black dark:bg-gray-900">
     <div class="flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
@@ -22,23 +27,34 @@
                 </h1>
 
                 <EditForm Model="loginModel" OnValidSubmit="LoginAsync" class="space-y-4 md:space-y-6">
+                    <DataAnnotationsValidator />
+                    
                     <div>
                         <label for="username" class="block mb-2 text-sm font-medium text-white">Your Username</label>
-                        <InputText @bind-Value="loginModel.UserName" id="username" type="text"
+                        <InputText @bind-Value="loginModel.UserName" 
+                                   id="username" 
+                                   type="text"
                                    class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                   placeholder="Username" />
+                                   placeholder="Username or Email"
+                                   disabled="@isLoading" />
+                        <ValidationMessage For="@(() => loginModel.UserName)" class="text-red-500 text-sm mt-1" />
                     </div>
                     
                     <div>
                         <label for="password" class="block mb-2 text-sm font-medium text-white">Password</label>
                         <div class="relative">
-                            <InputText @bind-Value="loginModel.Password" id="password"
+                            <InputText @bind-Value="loginModel.Password" 
+                                       id="password"
                                        type="@(_showPassword ? "text" : "password")"
                                        class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 pr-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                                       placeholder="Password" />
+                                       placeholder="Password"
+                                       disabled="@isLoading" />
                             
-                            <button type="button" @onclick="TogglePassword" aria-label="Toggle password visibility"
-                                    class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-black transition-colors duration-200">
+                            <button type="button" 
+                                    @onclick="TogglePassword" 
+                                    aria-label="Toggle password visibility"
+                                    disabled="@isLoading"
+                                    class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-black transition-colors duration-200 disabled:opacity-50">
                                 @if (_showPassword)
                                 {
                                     <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -54,15 +70,43 @@
                                 }
                             </button>
                         </div>
+                        <ValidationMessage For="@(() => loginModel.Password)" class="text-red-500 text-sm mt-1" />
                     </div>
+
+                    <div class="flex items-center">
+                        <InputCheckbox @bind-Value="loginModel.RememberMe" 
+                                       id="rememberMe" 
+                                       class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                       disabled="@isLoading" />
+                        <label for="rememberMe" class="ml-2 text-sm font-medium text-gray-300">
+                            Remember me (1 day)
+                        </label>
+                    </div>
+
                     <button type="submit"
-                            class="w-full p-2.5 mt-5 text-white bg-yellow-500 hover:bg-green-500 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg  px-5 py-2.5 text-center transition-colors duration-200">
-                        Sign in
+                            disabled="@isLoading"
+                            class="w-full p-2.5 mt-5 text-white bg-yellow-500 hover:bg-green-500 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg px-5 py-2.5 text-center transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                        @if (isLoading)
+                        {
+                            <span class="flex items-center justify-center gap-2">
+                                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Logging in...
+                            </span>
+                        }
+                        else
+                        {
+                            <span>Sign in</span>
+                        }
                     </button>
 
                     @if (!string.IsNullOrEmpty(ErrorMessage))
                     {
-                        <div class="text-sm font-light text-red-500 mt-2">@ErrorMessage</div>
+                        <div class="p-3 text-sm text-red-700 bg-red-100 rounded-lg border border-red-400">
+                            @ErrorMessage
+                        </div>
                     }
                 </EditForm>
             </div>
@@ -71,45 +115,90 @@
 </section>
 
 @code {
-    private LoginRequest loginModel = new();
+    private LoginModel loginModel = new();
     private string ErrorMessage = "";
     private bool _showPassword = false;
+    private bool isLoading = false;
 
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuthenticated = await AuthStateProvider.IsAuthenticatedAsync();
+        if (isAuthenticated)
+        {
+            Logger.LogInformation("User already authenticated, redirecting to home");
+            Navigation.NavigateTo("/", replace: true);
+        }
+    }
 
     private async Task LoginAsync()
     {
         ErrorMessage = "";
+        isLoading = true;
+        StateHasChanged();
+
         try
         {
-            var response = await Http.PostAsJsonAsync("api/auth/login", loginModel);
+            // Input validation
+            if (string.IsNullOrWhiteSpace(loginModel.UserName) || string.IsNullOrWhiteSpace(loginModel.Password))
+            {
+                ErrorMessage = "Username and password are required";    
+                ToastService?.ShowWarning(ErrorMessage);
+                return;
+            }
+
+            var response = await Http.PostAsJsonAsync("api/auth/login", new LoginRequest()
+            {
+                UserName = loginModel.UserName,
+                Password = loginModel.Password,
+                RememberMe = loginModel.RememberMe
+            });
+            
             if (response.IsSuccessStatusCode)
             {
-                // buat ClaimsPrincipal dari username
-                var identity = new ClaimsIdentity(new[]
+                var loginResponse = await response.Content.ReadFromJsonAsync<MyApp.Core.Domain.LoginResponse>();
+                
+                if (loginResponse?.Success == true)
                 {
-                    new Claim(ClaimTypes.Name, loginModel.UserName)
-                }, "apiauth_type");
+                    // Create user session
+                    var userSession = new UserSession
+                    {
+                        Username = loginResponse.UserName!,
+                        Email = loginResponse.Email,
+                        ExpiresAt = loginModel.RememberMe ? 
+                            DateTime.UtcNow.AddDays(1) : DateTime.UtcNow.AddHours(3),
+                        Roles = loginResponse.Roles ?? new List<string>(),
+                        LoginTime = DateTime.UtcNow,
+                        UserId = loginResponse.UserId.ToString(),
+                    };
 
-                var user = new ClaimsPrincipal(identity);
-
-                // beri tahu Blazor bahwa user sudah login
-                await AuthProvider.NotifyUserAuthentication(loginModel.UserName);
-
-                @* AuthProvider.NotifyUserAuthentication(loginModel.UserName); *@
-                ToastService?.ShowSuccess($"Login success , Welcome : {loginModel.UserName}");
-                // redirect ke home
-                Navigation.NavigateTo("/");
+                    // Update authentication state
+                    await AuthStateProvider.NotifyUserAuthentication(userSession);
+                    
+                    ToastService?.ShowSuccess($"Welcome back, {loginResponse.UserName}!");
+                    Navigation.NavigateTo(loginResponse.RedirectUrl, forceLoad: true);
+                    return;
+                }
+                
+                ErrorMessage = loginResponse?.Message ?? "Login failed";
+                ToastService?.ShowWarning(ErrorMessage);
             }
             else
             {
-                var content = await response.Content.ReadAsStringAsync();
-                ToastService?.ShowWarning(content);
+                var loginResponse = await response.Content.ReadFromJsonAsync<MyApp.Core.Domain.LoginResponse>();
+                ErrorMessage = loginResponse?.Message ?? "Invalid username or password";
+                ToastService?.ShowWarning(ErrorMessage);
             }
         }
         catch (Exception ex)
         {
-            ErrorMessage = ex.Message;
+            ErrorMessage = "An unexpected error occurred. Please try again.";
             ToastService?.ShowError(ErrorMessage);
+            Logger.LogError(ex, $"Unexpected error during login for user {loginModel.UserName}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -118,7 +207,7 @@
         _showPassword = !_showPassword;
     }
 
-    public class LoginRequest
+    private class LoginModel
     {
         public string UserName { get; set; } = "";
         public string Password { get; set; } = "";

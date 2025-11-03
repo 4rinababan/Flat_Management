@@ -16,7 +16,7 @@
 
         if (user.Identity?.IsAuthenticated ?? false)
         {
-            username = user.Identity.Name;
+            username = user.Identity?.Name ?? "User";
         }
         else
         {

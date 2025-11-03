@@ -1,25 +1,117 @@
-using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.EntityFrameworkCore.Storage;
+using MyApp.Infrastructure.Redis;
+using StackExchange.Redis;
+using System.Text.Json;
 
-public class RedisService
+public class RedisService : IRedisService
 {
-    private readonly IDistributedCache _cache;
+    private readonly IConnectionMultiplexer _redis;
+    private readonly StackExchange.Redis.IDatabase _db;
 
-    public RedisService(IDistributedCache cache)
+    public RedisService(IConnectionMultiplexer redis)
     {
-        _cache = cache;
+        _redis = redis ?? throw new ArgumentNullException(nameof(redis));
+        _db = _redis.GetDatabase();
     }
 
-    public async Task SetAsync(string key, string value, int minutes = 5)
+    /// <summary>
+    /// Get value by key and deserialize to type T
+    /// </summary>
+    public async Task<T> GetAsync<T>(string key)
     {
-        var options = new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(minutes)
-        };
-        await _cache.SetStringAsync(key, value, options);
+        if (string.IsNullOrEmpty(key))
+            throw new ArgumentNullException(nameof(key));
+
+        var value = await _db.StringGetAsync(key);
+
+        if (!value.HasValue)
+            return default;
+
+        return JsonSerializer.Deserialize<T>(value);
     }
 
-    public async Task<string?> GetAsync(string key)
+    /// <summary>
+    /// Get string value by key
+    /// </summary>
+    public async Task<string> GetAsync(string key)
     {
-        return await _cache.GetStringAsync(key);
+        if (string.IsNullOrEmpty(key))
+            throw new ArgumentNullException(nameof(key));
+
+        var value = await _db.StringGetAsync(key);
+        return value.HasValue ? value.ToString() : null;
+    }
+
+    /// <summary>
+    /// Set value with optional TTL (Time To Live)
+    /// </summary>
+    public async Task<bool> SetAsync<T>(string key, T value, TimeSpan? expiry = null)
+    {
+        if (string.IsNullOrEmpty(key))
+            throw new ArgumentNullException(nameof(key));
+
+        if (value == null)
+            throw new ArgumentNullException(nameof(value));
+
+        var serializedValue = JsonSerializer.Serialize(value);
+        return await _db.StringSetAsync(key, serializedValue, expiry);
+    }
+
+    /// <summary>
+    /// Set string value with optional TTL
+    /// </summary>
+    public async Task<bool> SetAsync(string key, string value, TimeSpan? expiry = null)
+    {
+        if (string.IsNullOrEmpty(key))
+            throw new ArgumentNullException(nameof(key));
+
+        if (value == null)
+            throw new ArgumentNullException(nameof(value));
+
+        return await _db.StringSetAsync(key, value, expiry);
+    }
+
+    /// <summary>
+    /// Remove key from Redis
+    /// </summary>
+    public async Task<bool> RemoveAsync(string key)
+    {
+        if (string.IsNullOrEmpty(key))
+            throw new ArgumentNullException(nameof(key));
+
+        return await _db.KeyDeleteAsync(key);
+    }
+
+    /// <summary>
+    /// Check if key exists
+    /// </summary>
+    public async Task<bool> ExistsAsync(string key)
+    {
+        if (string.IsNullOrEmpty(key))
+            throw new ArgumentNullException(nameof(key));
+
+        return await _db.KeyExistsAsync(key);
+    }
+
+    /// <summary>
+    /// Get remaining TTL of a key
+    /// </summary>
+    public async Task<TimeSpan?> GetTimeToLiveAsync(string key)
+    {
+        if (string.IsNullOrEmpty(key))
+            throw new ArgumentNullException(nameof(key));
+
+        return await _db.KeyTimeToLiveAsync(key);
+    }
+
+    /// <summary>
+    /// Set or update expiry time for existing key
+    /// </summary>
+    public async Task<bool> SetExpiryAsync(string key, TimeSpan expiry)
+    {
+        if (string.IsNullOrEmpty(key))
+            throw new ArgumentNullException(nameof(key));
+
+        return await _db.KeyExpireAsync(key, expiry);
     }
 }

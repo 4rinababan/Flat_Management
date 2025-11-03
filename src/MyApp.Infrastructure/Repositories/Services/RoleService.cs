@@ -24,7 +24,7 @@ namespace MyApp.Infrastructure.Data
 
 
         public async Task<List<Role>> GetAllAsync() =>
-            await _context.Roles.ToListAsync();
+            await _context.Roles.AsNoTracking().ToListAsync();
 
         public async Task AddAsync(Role Role)
         {

@@ -1,50 +1,66 @@
+using MyApp.Infrastructure.Identity;
+using MyApp.Core.Interfaces;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MyApp.Core.Entities;
-using MyApp.Core.Interfaces;
-using MyApp.Infrastructure.Data;
 
-public class UserRepository : IUserRepository
+namespace MyApp.Infrastructure.Repositories.Services
 {
-    private readonly AppDbContext _context;
-
-    public UserRepository(AppDbContext context)
+    public class UserService : IUserService
     {
-        _context = context;
-    }
+        private readonly UserManager<ApplicationUser> _userManager;
 
-    public async Task<User?> GetByUserNameAsync(string username)
-    {
-        return await _context.Users
-            .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.UserName == username && u.IsActive);
-    }
-
-
-    public async Task<User?> GetByIdAsync(int id) =>
-        await _context.Users.FindAsync(id);
-
-    public async Task<List<User>> GetAllAsync() =>
-        await _context.Users.ToListAsync();
-
-    public async Task AddAsync(User user)
-    {
-        await _context.Users.AddAsync(user);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task UpdateAsync(User user)
-    {
-        _context.Users.Update(user);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task DeleteAsync(int id)
-    {
-        var user = await _context.Users.FindAsync(id);
-        if (user != null)
+        public UserService(UserManager<ApplicationUser> userManager)
         {
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
+            _userManager = userManager;
+        }
+
+        public async Task<ApplicationUser?> GetUserByIdAsync(string id)
+        {
+            return await _userManager.FindByIdAsync(id);
+        }
+
+        public async Task<List<ApplicationUser>> GetAllUsersAsync()
+        {
+            return await _userManager.Users.ToListAsync();
+        }
+
+        public async Task<bool> CreateUserAsync(ApplicationUser user, string password)
+        {
+            var result = await _userManager.CreateAsync(user, password);
+            return result.Succeeded;
+        }
+
+        public async Task<bool> UpdateUserAsync(ApplicationUser user)
+        {
+            var result = await _userManager.UpdateAsync(user);
+            return result.Succeeded;
+        }
+
+        public async Task<bool> DeleteUserAsync(string id)
+        {
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null) return false;
+            
+            var result = await _userManager.DeleteAsync(user);
+            return result.Succeeded;
+        }
+
+        public async Task<IList<string>> GetUserRolesAsync(ApplicationUser user)
+        {
+            return await _userManager.GetRolesAsync(user);
+        }
+
+        public async Task<bool> AddUserToRoleAsync(ApplicationUser user, string roleName)
+        {
+            var result = await _userManager.AddToRoleAsync(user, roleName);
+            return result.Succeeded;
+        }
+
+        public async Task<bool> RemoveUserFromRoleAsync(ApplicationUser user, string roleName)
+        {
+            var result = await _userManager.RemoveFromRoleAsync(user, roleName);
+            return result.Succeeded;
         }
     }
 }

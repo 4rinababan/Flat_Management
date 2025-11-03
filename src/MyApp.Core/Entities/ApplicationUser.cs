@@ -1,8 +1,7 @@
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 
-namespace MyApp.Infrastructure.Identity
+namespace MyApp.Core.Entities
 {
-    // Gunakan int sebagai Id
     public class ApplicationUser : IdentityUser<int>
     {
         // Properti tambahan

@@ -8,6 +8,8 @@
 @inject IFileService FileService
 @inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedSessionStorage SessionStorage
 @inject ToastService ToastService
+@inject IPermissionService PermissionService
+@inject NavigationManager NavigationManager
 
 <PageTitle>Vendor Management</PageTitle>
 
@@ -27,11 +29,14 @@
                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
             </div>
 
-            <button class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-xl 
-                            shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
-                @onclick="AddVendor">
-                <i class="fas fa-plus"></i> Add Vendor
-            </button>
+            @if (CanCreate)
+            {
+                <button class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-xl 
+                                shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+                    @onclick="AddVendor">
+                    <i class="fas fa-plus"></i> Add Vendor
+                </button>
+            }
         </div>
     </div>
 
@@ -93,19 +98,27 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                <button class="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-100 transition"
-                                    @onclick="() => ShowDetail(v)">
-                                    <i class="fas fa-eye mr-1"></i> Detail
-                                </button>
-                                <button
-                                    class="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-100 transition"
-                                    @onclick="() => EditVendor(v)">
-                                    <i class="fas fa-edit mr-1"></i> Edit
-                                </button>
-                                <button class="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition"
-                                    @onclick="() => ConfirmDelete(v.Id, v.Name)">
-                                    <i class="fas fa-trash-alt mr-1"></i> Delete
-                                </button>
+                                @if (CanView)
+                                {
+                                    <button class="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-100 transition"
+                                        @onclick="() => ShowDetail(v)">
+                                        <i class="fas fa-eye mr-1"></i> Detail
+                                    </button>
+                                }
+                                @if (CanUpdate)
+                                {
+                                    <button class="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-100 transition"
+                                        @onclick="() => EditVendor(v)">
+                                        <i class="fas fa-edit mr-1"></i> Edit
+                                    </button>
+                                }
+                                @if (CanDelete)
+                                {
+                                    <button class="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition"
+                                        @onclick="() => ConfirmDelete(v.Id, v.Name)">
+                                        <i class="fas fa-trash-alt mr-1"></i> Delete
+                                    </button>
+                                }
                             </td>
                         </tr>
                     }
@@ -457,8 +470,27 @@
     private IEnumerable<Vendor> PagedVendors =>
     FilteredVendors.Skip((CurrentPage - 1) * PageSize).Take(PageSize);
 
+    // Add these properties
+    private bool CanView = false;
+    private bool CanCreate = false;
+    private bool CanUpdate = false;
+    private bool CanDelete = false;
+
+    // Update OnInitializedAsync
     protected override async Task OnInitializedAsync()
     {
+        // Check permissions first
+        CanView = await PermissionService.HasPermissionAsync("vendors", "view");
+        if (!CanView)
+        {
+            NavigationManager.NavigateTo("/unauthorized");
+            return;
+        }
+
+        CanCreate = await PermissionService.HasPermissionAsync("vendors", "create");
+        CanUpdate = await PermissionService.HasPermissionAsync("vendors", "update");
+        CanDelete = await PermissionService.HasPermissionAsync("vendors", "delete");
+
         await LoadData();
         Loading = false;
     }
@@ -516,6 +548,12 @@
     // Method: AddVendor
     private async Task AddVendor()
     {
+        if (!CanCreate)
+        {
+            ToastService.ShowError("You don't have permission to add new vendors");
+            return;
+        }
+
         var claims = await SessionStorage.GetAsync<Dictionary<string, string>>("claims");
         string? username = null;
         claims.Value?.TryGetValue(ClaimTypes.Name, out username);
@@ -544,6 +582,12 @@
     // Method: EditVendor
     private void EditVendor(Vendor v)
     {
+        if (!CanUpdate)
+        {
+            ToastService.ShowError("You don't have permission to edit vendors");
+            return;
+        }
+
         // Clone the vendor for editing to avoid modifying the list directly
         Selected = CloneVendor(v);
 
@@ -586,6 +630,12 @@
 
     private async Task SaveVendor()
     {
+        if ((Selected.Id == 0 && !CanCreate) || (Selected.Id != 0 && !CanUpdate))
+        {
+            await ToastService.ShowError("You don't have permission to perform this action");
+            return;
+        }
+
         bool isNew = Selected.Id == 0;
 
         try
@@ -651,6 +701,12 @@
 
     private async Task DeleteConfirmed()
     {
+        if (!CanDelete)
+        {
+            await ToastService.ShowError("You don't have permission to delete vendors");
+            return;
+        }
+
         if (VendorIdToDelete == 0) return;
 
         try
@@ -692,6 +748,12 @@
 
     private void ConfirmDelete(int id, string name)
     {
+        if (!CanDelete)
+        {
+            ToastService.ShowError("You don't have permission to delete vendors");
+            return;
+        }
+
         VendorIdToDelete = id;
         ConfirmMessage = new MarkupString(
         $"Are you sure you want to delete the Vendor <b>\"{name}\"</b>? This action cannot be undone."
