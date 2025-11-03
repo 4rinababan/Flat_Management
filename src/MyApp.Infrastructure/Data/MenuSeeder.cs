@@ -33,7 +33,7 @@ namespace MyApp.Infrastructure.Data
                 var menus = new List<Menu>
                 {
                     new() { Code = "dashboard", Name = "Dashboard", IconName = "layout-dashboard", Color = "text-yellow-400", Url = "/dashboard", Order = 1 },
-                    new() { Code = "users", Name = "Users", IconName = "users", Color = "text-blue-400", Url = "/users", Order = 2 },
+                    new() { Code = "administration", Name = "Users", IconName = "users", Color = "text-blue-400", Order = 2 },
                     new() { Code = "occupants-management", Name = "Occupants Management", IconName = "home", Color = "text-orange-400", Order = 3 },
                     new() { Code = "visitors-management", Name = "Visitors Management", IconName = "user-check", Color = "text-orange-400", Order = 4 },
                     new() { Code = "employees", Name = "Employees", IconName = "briefcase", Color = "text-cyan-400", Url = "/employees", Order = 5 },
@@ -57,6 +57,18 @@ namespace MyApp.Infrastructure.Data
                     new() { Code = "history", Name = "Histories", IconName = "calendar", Color = "text-teal-400", Url = "/occupant-history", Order = 2, ParentId = occupantsParent.Id }
                 };
                 await context.Menus.AddRangeAsync(occupantsSubmenus);
+
+                 // Add submenus - Menu Management
+                var administrationParent = await context.Menus.FirstAsync(m => m.Code == "administration");
+                var administrationSubmenus = new List<Menu>
+                {
+                    new() { Code = "users", Name = "Users", IconName = "users", Color = "text-teal-400", Url = "/users", Order = 1, ParentId = administrationParent.Id },
+                    new() { Code = "user-roles", Name = "User Roles", IconName = "users", Color = "text-teal-400", Url = "/user-roles", Order = 2, ParentId = administrationParent.Id },
+                    new() { Code = "role-permissions", Name = "Roles & Permissions", IconName = "shield", Color = "text-teal-400", Url = "/users", Order = 3, ParentId = administrationParent.Id },
+                    new() { Code = "menu-list", Name = "Module List", IconName = "clipboard-list", Color = "text-teal-400", Url = "/menu-list", Order = 4, ParentId = administrationParent.Id },
+                    new() { Code = "system-settings", Name = "System Settings", IconName = "cogs", Color = "text-teal-400", Url = "/system-settings", Order = 5, ParentId = administrationParent.Id },
+                };
+                await context.Menus.AddRangeAsync(administrationSubmenus);
 
                 // Add submenus - Visitors Management
                 var visitorsParent = await context.Menus.FirstAsync(m => m.Code == "visitors-management");

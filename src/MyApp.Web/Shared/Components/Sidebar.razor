@@ -1,3 +1,4 @@
+@using MyApp.Core.Entities
 @using MyApp.Web.Shared.Components
 @using System.Collections.Generic
 @using Microsoft.AspNetCore.Identity
@@ -93,6 +94,8 @@
     {
         try
         {
+            await Task.Delay(100);
+
             // Trigger GetAuthenticationStateAsync untuk memastikan state terupdate
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             

@@ -18,6 +18,8 @@ namespace MyApp.Infrastructure.Services
             _logger = logger;
         }
 
+        #region Menu Permission & Navigation Methods
+
         public async Task<List<MenuDto>> GetMenusByUserRolesAsync(List<string> roles)
         {
             try
@@ -34,16 +36,20 @@ namespace MyApp.Infrastructure.Services
                     return new List<MenuDto>();
                 }
 
-                // Get menus with permissions
-                var menus = await _context.Menus
+                // Load ALL menus sekaligus dengan permissions (hindari N+1 query problem)
+                var allMenus = await _context.Menus
                     .Include(m => m.MenuPermissions)
-                    .Where(m => m.IsActive && m.ParentId == null)
+                    .Where(m => m.IsActive)
                     .OrderBy(m => m.Order)
                     .ToListAsync();
 
+                // Filter parent menus saja
+                var parentMenus = allMenus.Where(m => m.ParentId == null).ToList();
+
                 var menuDtos = new List<MenuDto>();
 
-                foreach (var menu in menus)
+                // Process menus secara synchronous dari data yang sudah di-load
+                foreach (var menu in parentMenus)
                 {
                     var permissions = GetHighestPermissions(menu.MenuPermissions, roleIds);
                     
@@ -60,8 +66,8 @@ namespace MyApp.Infrastructure.Services
                             Permissions = permissions
                         };
 
-                        // Get children
-                        menuDto.Children = await GetChildMenusAsync(menu.Id, roleIds);
+                        // Get children dari data yang sudah di-load (TIDAK query database lagi)
+                        menuDto.Children = GetChildMenusRecursive(menu.Id, allMenus, roleIds);
                         menuDtos.Add(menuDto);
                     }
                 }
@@ -75,13 +81,13 @@ namespace MyApp.Infrastructure.Services
             }
         }
 
-        private async Task<List<MenuDto>> GetChildMenusAsync(int parentId, List<int> roleIds)
+        // Method synchronous yang process data yang sudah di-load
+        private List<MenuDto> GetChildMenusRecursive(int parentId, List<Menu> allMenus, List<int> roleIds)
         {
-            var children = await _context.Menus
-                .Include(m => m.MenuPermissions)
-                .Where(m => m.IsActive && m.ParentId == parentId)
+            var children = allMenus
+                .Where(m => m.ParentId == parentId)
                 .OrderBy(m => m.Order)
-                .ToListAsync();
+                .ToList();
 
             var childDtos = new List<MenuDto>();
 
@@ -102,7 +108,8 @@ namespace MyApp.Infrastructure.Services
                         Permissions = permissions
                     };
 
-                    childDto.Children = await GetChildMenusAsync(child.Id, roleIds);
+                    // Recursive call pada data yang sudah di-load
+                    childDto.Children = GetChildMenusRecursive(child.Id, allMenus, roleIds);
                     childDtos.Add(childDto);
                 }
             }
@@ -186,5 +193,200 @@ namespace MyApp.Infrastructure.Services
                 _ => false
             };
         }
+
+        #endregion
+
+        #region CRUD Methods
+
+        public async Task<List<Menu>> GetAllAsync()
+        {
+            try
+            {
+                return await _context.Menus
+                    .Include(m => m.Parent)
+                    .Include(m => m.Children)
+                    .OrderBy(m => m.Order)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all menus");
+                throw;
+            }
+        }
+
+        public async Task<Menu?> GetByIdAsync(int id)
+        {
+            try
+            {
+                return await _context.Menus
+                    .Include(m => m.Parent)
+                    .Include(m => m.Children)
+                    .Include(m => m.MenuPermissions)
+                    .FirstOrDefaultAsync(m => m.Id == id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting menu by id: {id}");
+                throw;
+            }
+        }
+
+        public async Task<Menu> AddAsync(Menu menu)
+        {
+            try
+            {
+                // Validate unique code
+                var existingMenu = await _context.Menus
+                    .FirstOrDefaultAsync(m => m.Code == menu.Code);
+
+                if (existingMenu != null)
+                {
+                    throw new InvalidOperationException($"Menu with code '{menu.Code}' already exists.");
+                }
+
+                // Set timestamps
+                menu.CreatedAt = DateTime.UtcNow;
+                menu.UpdatedAt = null;
+
+                _context.Menus.Add(menu);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Menu '{menu.Name}' added successfully with ID: {menu.Id}");
+                return menu;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding menu");
+                throw;
+            }
+        }
+
+        public async Task UpdateAsync(Menu menu)
+        {
+            try
+            {
+                var existingMenu = await _context.Menus.FindAsync(menu.Id);
+                if (existingMenu == null)
+                {
+                    throw new InvalidOperationException($"Menu with ID {menu.Id} not found.");
+                }
+
+                // Validate unique code (exclude current menu)
+                var duplicateCode = await _context.Menus
+                    .AnyAsync(m => m.Code == menu.Code && m.Id != menu.Id);
+
+                if (duplicateCode)
+                {
+                    throw new InvalidOperationException($"Menu with code '{menu.Code}' already exists.");
+                }
+
+                // Prevent circular parent reference
+                if (menu.ParentId.HasValue)
+                {
+                    if (await IsCircularReference(menu.Id, menu.ParentId.Value))
+                    {
+                        throw new InvalidOperationException("Cannot set parent menu: circular reference detected.");
+                    }
+                }
+
+                // Update properties
+                existingMenu.Code = menu.Code;
+                existingMenu.Name = menu.Name;
+                existingMenu.IconName = menu.IconName;
+                existingMenu.Color = menu.Color;
+                existingMenu.Url = menu.Url;
+                existingMenu.ParentId = menu.ParentId;
+                existingMenu.Order = menu.Order;
+                existingMenu.IsActive = menu.IsActive;
+                existingMenu.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Menu '{menu.Name}' updated successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating menu with ID: {menu.Id}");
+                throw;
+            }
+        }
+
+        public async Task DeleteAsync(int id)
+        {
+            try
+            {
+                var menu = await _context.Menus
+                    .Include(m => m.Children)
+                    .Include(m => m.MenuPermissions)
+                    .FirstOrDefaultAsync(m => m.Id == id);
+
+                if (menu == null)
+                {
+                    throw new InvalidOperationException($"Menu with ID {id} not found.");
+                }
+
+                // Check if menu has children
+                if (menu.Children.Any())
+                {
+                    throw new InvalidOperationException("Cannot delete menu with child menus. Delete children first.");
+                }
+
+                // Remove menu permissions first
+                if (menu.MenuPermissions.Any())
+                {
+                    _context.MenuPermissions.RemoveRange(menu.MenuPermissions);
+                }
+
+                _context.Menus.Remove(menu);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Menu '{menu.Name}' deleted successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error deleting menu with ID: {id}");
+                throw;
+            }
+        }
+
+        public async Task<List<Menu>> GetMenusByParentIdAsync(int? parentId)
+        {
+            try
+            {
+                return await _context.Menus
+                    .Where(m => m.ParentId == parentId)
+                    .OrderBy(m => m.Order)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting menus by parent ID: {parentId}");
+                throw;
+            }
+        }
+
+        #endregion
+
+        #region Helper Methods
+
+        private async Task<bool> IsCircularReference(int menuId, int parentId)
+        {
+            var parent = await _context.Menus.FindAsync(parentId);
+            if (parent == null)
+                return false;
+
+            if (parent.Id == menuId)
+                return true;
+
+            if (parent.ParentId.HasValue)
+            {
+                return await IsCircularReference(menuId, parent.ParentId.Value);
+            }
+
+            return false;
+        }
+
+        #endregion
     }
 }

@@ -4,10 +4,19 @@ namespace MyApp.Core.Interfaces
 {
     public interface IMenuService
     {
+        // Menu Permission & Navigation Methods
         Task<List<MenuDto>> GetMenusByUserRolesAsync(List<string> roles);
         Task<MenuPermissionDto?> GetMenuPermissionAsync(string menuCode, List<string> roles);
         Task<List<Menu>> GetAllMenusAsync();
         Task<bool> HasPermissionAsync(string menuCode, List<string> roles, string permissionType);
+
+        // CRUD Methods
+        Task<List<Menu>> GetAllAsync();
+        Task<Menu?> GetByIdAsync(int id);
+        Task<Menu> AddAsync(Menu menu);
+        Task UpdateAsync(Menu menu);
+        Task DeleteAsync(int id);
+        Task<List<Menu>> GetMenusByParentIdAsync(int? parentId);
     }
 
     public class MenuDto

@@ -4,10 +4,12 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using MyApp.Core.Entities;
 using MyApp.Core.Interfaces;
 using MyApp.Infrastructure;
 using MyApp.Infrastructure.Data;
 using MyApp.Infrastructure.Identity;
+using MyApp.Infrastructure.Repositories.Services;
 using MyApp.Infrastructure.Services;
 using MyApp.Web.Authentication;
 using MyApp.Web.Data;
@@ -115,6 +117,7 @@ builder.Services.AddSingleton(new TTLockClient(
 ));
 
 builder.Services.AddScoped<DeviceService>();
+builder.Services.AddScoped<UserService, UserService>();
 
 // ======================================================
 // CONTROLLERS

@@ -1,24 +1,23 @@
 using MyApp.Infrastructure.Identity;
-using MyApp.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
+using MyApp.Core.Interfaces;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using MyApp.Core.Entities;
 
 namespace MyApp.Infrastructure.Repositories.Services
 {
-    public class UserService
+    public class UserService : IUserService
     {
-        private readonly AppDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
 
-        public UserService(AppDbContext context, UserManager<ApplicationUser> userManager)
+        public UserService(UserManager<ApplicationUser> userManager)
         {
-            _context = context;
             _userManager = userManager;
         }
 
-        public async Task<ApplicationUser?> GetUserByIdAsync(int id)
+        public async Task<ApplicationUser?> GetUserByIdAsync(string id)
         {
-            return await _userManager.FindByIdAsync(id.ToString());
+            return await _userManager.FindByIdAsync(id);
         }
 
         public async Task<List<ApplicationUser>> GetAllUsersAsync()
@@ -38,8 +37,11 @@ namespace MyApp.Infrastructure.Repositories.Services
             return result.Succeeded;
         }
 
-        public async Task<bool> DeleteUserAsync(ApplicationUser user)
+        public async Task<bool> DeleteUserAsync(string id)
         {
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null) return false;
+            
             var result = await _userManager.DeleteAsync(user);
             return result.Succeeded;
         }

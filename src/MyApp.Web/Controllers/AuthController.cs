@@ -2,6 +2,7 @@ using DocumentFormat.OpenXml.Math;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using MyApp.Core.Entities;
 using MyApp.Infrastructure.Identity;
 using MyApp.Shared.Models;
 using System.Security.Claims;
