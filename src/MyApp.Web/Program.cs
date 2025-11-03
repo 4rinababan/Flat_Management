@@ -98,7 +98,7 @@ builder.Services.AddScoped<CustomAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(provider =>
     provider.GetRequiredService<CustomAuthenticationStateProvider>());
 builder.Services.AddCascadingAuthenticationState();
-
+builder.Services.AddScoped<IPermissionService, AccountPermissionModules>();
 
 builder.Services.AddAuthorization();
 

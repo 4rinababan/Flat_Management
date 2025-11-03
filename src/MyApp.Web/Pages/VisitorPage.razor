@@ -7,8 +7,8 @@
 @inject IOccupantRepository OccupantService
 @inject IFileService FileService
 @inject ToastService ToastService
-
-
+@inject IPermissionService PermissionService
+@inject NavigationManager NavigationManager
 <!-- Summary Cards -->
 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
     <div class="bg-gradient-to-br from-blue-600 to-blue-900 text-white p-5 rounded-2xl shadow-lg flex items-center gap-4">
@@ -54,10 +54,13 @@
                     placeholder="Search Visitor..." />
                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
             </div>
-            <button class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
-                @onclick="AddVisitor">
-                <i class="fas fa-plus"></i> Add Visitor
-            </button>
+            @if (CanCreate)
+            {
+                <button class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+                    @onclick="AddVisitor">
+                    <i class="fas fa-plus"></i> Add Visitor
+                </button>
+            }
         </div>
     </div>
     <div class="overflow-x-auto rounded-xl shadow-md border border-gray-200">
@@ -111,18 +114,27 @@
                                 <span class="@GetStatusClass(v.DepartedAt == null)">@((v.DepartedAt == null) ? "Active" : "Inactive")</span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                <button class="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-100 transition"
-                                    @onclick="() => ShowDetail(v)">
-                                    <i class="fas fa-eye mr-1"></i> Detail
-                                </button>
-                                <button class="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-100 transition"
-                                    @onclick="() => EditVisitor(v)">
-                                    <i class="fas fa-edit mr-1"></i> Edit
-                                </button>
-                                <button class="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition"
-                                    @onclick="() => ConfirmCheckout(v.Id)">
-                                    <i class="fas fa-sign-out-alt mr-1"></i> Checkout
-                                </button>
+                                @if (CanView)
+                                {
+                                    <button class="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-100 transition"
+                                        @onclick="() => ShowDetail(v)">
+                                        <i class="fas fa-eye mr-1"></i> Detail
+                                    </button>
+                                }
+                                @if (CanUpdate)
+                                {
+                                    <button class="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-100 transition"
+                                        @onclick="() => EditVisitor(v)">
+                                        <i class="fas fa-edit mr-1"></i> Edit
+                                    </button>
+                                }
+                                @if (CanDelete)
+                                {
+                                    <button class="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition"
+                                        @onclick="() => ConfirmCheckout(v.Id)">
+                                        <i class="fas fa-sign-out-alt mr-1"></i> Checkout
+                                    </button>
+                                }
                             </td>
                         </tr>
                     }
@@ -313,6 +325,12 @@
 <ToastContainer @ref="toastContainer" />
 
 @code {
+    // Add these properties at the top
+    private bool CanView = false;
+    private bool CanCreate = false;
+    private bool CanUpdate = false;
+    private bool CanDelete = false;
+
     private string AutoRoomName = "";
     @* public string DisplayText => $"{Employee?.Name} ({Employee?.NRP})"; *@
     private ToastContainer? toastContainer;
@@ -398,6 +416,19 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Check permissions first
+        CanView = await PermissionService.HasPermissionAsync("visitors", "view");
+        if (!CanView)
+        {
+            NavigationManager.NavigateTo("/unauthorized");
+            return;
+        }
+
+        CanCreate = await PermissionService.HasPermissionAsync("visitors", "create");
+        CanUpdate = await PermissionService.HasPermissionAsync("visitors", "update");
+        CanDelete = await PermissionService.HasPermissionAsync("visitors", "delete");
+
+        // Existing timer code
         _timer = new System.Threading.Timer(_ =>
         {
             InvokeAsync(StateHasChanged);
@@ -424,6 +455,12 @@
 
     private void AddVisitor()
     {
+        if (!CanCreate)
+        {
+            ToastService.ShowError("You don't have permission to add visitors");
+            return;
+        }
+
         SelectedVisitor = new Visitor
         {
             Id = 0,
@@ -436,6 +473,12 @@
 
     private void EditVisitor(Visitor v)
     {
+        if (!CanUpdate)
+        {
+            ToastService.ShowError("You don't have permission to edit visitors");
+            return;
+        }
+
         SelectedVisitor = new Visitor
         {
             Id = v.Id,
@@ -464,6 +507,12 @@
 
     private void ConfirmCheckout(int id)
     {
+        if (!CanDelete)
+        {
+            ToastService.ShowError("You don't have permission to checkout visitors");
+            return;
+        }
+
         CheckoutVisitorId = id;
         ShowCheckoutModal = true;
     }
@@ -497,6 +546,12 @@
 
     private async Task SaveVisitor()
     {
+        if ((ModalMode == "Add" && !CanCreate) || (ModalMode == "Edit" && !CanUpdate))
+        {
+            ToastService.ShowError("You don't have permission to perform this action");
+            return;
+        }
+
         try
         {
             // safety guard: reset Id supaya auto increment jalan

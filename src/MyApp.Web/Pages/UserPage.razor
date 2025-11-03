@@ -7,6 +7,8 @@
 @inject IRoleRepository RoleService
 @inject ToastService ToastService
 @inject IUserRoleService UserRoleService
+@inject IPermissionService PermissionService
+@inject NavigationManager NavigationManager
 
 <PageTitle>User Management</PageTitle>
 
@@ -40,10 +42,13 @@
                     placeholder="Search Username or Email..." />
                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
             </div>
-            <button class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
-                @onclick="AddUser">
-                <i class="fas fa-plus"></i> Add User
-            </button>
+            @if (CanCreate)
+            {
+                <button class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+                    @onclick="AddUser">
+                    <i class="fas fa-plus"></i> Add User
+                </button>
+            }
         </div>
     </div>
 
@@ -92,18 +97,27 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                <button class="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-100 transition"
-                                    @onclick="() => ShowDetail(u)">
-                                    <i class="fas fa-eye mr-1"></i> Detail
-                                </button>
-                                <button class="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-100 transition"
-                                    @onclick="() => EditUser(u)">
-                                    <i class="fas fa-edit mr-1"></i> Edit
-                                </button>
-                                <button class="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition"
-                                    @onclick="() => ConfirmDelete(u.Id.ToString(), u.UserName)">
-                                    <i class="fas fa-trash-alt mr-1"></i> Delete
-                                </button>
+                                @if (CanView)
+                                {
+                                    <button class="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-100 transition"
+                                        @onclick="() => ShowDetail(u)">
+                                        <i class="fas fa-eye mr-1"></i> Detail
+                                    </button>
+                                }
+                                @if (CanUpdate)
+                                {
+                                    <button class="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-100 transition"
+                                        @onclick="() => EditUser(u)">
+                                        <i class="fas fa-edit mr-1"></i> Edit
+                                    </button>
+                                }
+                                @if (CanDelete)
+                                {
+                                    <button class="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition"
+                                        @onclick="() => ConfirmDelete(u.Id.ToString(), u.UserName)">
+                                        <i class="fas fa-trash-alt mr-1"></i> Delete
+                                    </button>
+                                }
                             </td>
                         </tr>
                     }
@@ -260,8 +274,26 @@
     private List<string> AvailableRoles = new();
     private string SelectedRole = "";
 
+    private bool CanView = false;
+    private bool CanCreate = false;
+    private bool CanUpdate = false;
+    private bool CanDelete = false;
+
     protected override async Task OnInitializedAsync()
     {
+        // Check permissions first
+        CanView = await PermissionService.HasPermissionAsync("users", "view");
+        if (!CanView)
+        {
+            NavigationManager.NavigateTo("/unauthorized");
+            return;
+        }
+
+        CanCreate = await PermissionService.HasPermissionAsync("users", "create");
+        CanUpdate = await PermissionService.HasPermissionAsync("users", "update");
+        CanDelete = await PermissionService.HasPermissionAsync("users", "delete");
+
+        // Only load data if user has view permission
         await LoadUsers();
         await LoadRoles();
     }
@@ -367,6 +399,11 @@
 
     private async Task DeleteConfirmed()
     {
+        if (!CanDelete)
+        {
+            await ToastService.ShowError("You don't have permission to delete");
+            return;
+        }
         try
         {
             await UserService.DeleteUserAsync(UserIdToDelete);
@@ -385,6 +422,12 @@
 
     private async Task SaveUser()
     {
+        if ((ModalMode == "Add" && !CanCreate) || (ModalMode == "Edit" && !CanUpdate))
+        {
+            await ToastService.ShowError("You don't have permission to perform this action");
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(SelectedUser.UserName))
         {
             await ToastService.ShowWarning("Username is required.");
