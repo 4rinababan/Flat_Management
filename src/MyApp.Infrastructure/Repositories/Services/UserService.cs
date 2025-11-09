@@ -1,92 +1,66 @@
+using MyApp.Infrastructure.Identity;
+using MyApp.Core.Interfaces;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MyApp.Core.Entities;
-using MyApp.Core.Interfaces;
-using MyApp.Infrastructure.Data;
 
-public class UserRepository : IUserRepository
+namespace MyApp.Infrastructure.Repositories.Services
 {
-    private readonly AppDbContext _context;
-
-    public UserRepository(AppDbContext context)
+    public class UserService : IUserService
     {
-        _context = context;
-    }
+        private readonly UserManager<ApplicationUser> _userManager;
 
-    public async Task<User?> GetByUserNameAsync(string username)
-    {
-        return await _context.Users
-            .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.UserName == username && u.IsActive);
-    }
-
-
-    public async Task<User?> GetByIdAsync(int id) =>
-        await _context.Users.FindAsync(id);
-
-    public async Task<List<User>> GetAllAsync() =>
-        await _context.Users.ToListAsync();
-
-    public async Task AddAsync(User user)
-    {
-        await _context.Users.AddAsync(user);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task UpdateAsync(User user)
-    {
-        try
+        public UserService(UserManager<ApplicationUser> userManager)
         {
-            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == user.Id);
-            if (existingUser == null)
-                throw new Exception("User not found.");
-
-            // Detach entity lama
-            _context.Entry(existingUser).State = EntityState.Detached;
-
-            // Attach entity baru lalu tandai sebagai Modified
-            _context.Attach(user);
-            _context.Entry(user).State = EntityState.Modified;
-
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            throw new Exception("The user record was modified or deleted by another process.");
-        }
-    }
-
-
-    public async Task DeleteAsync(int id)
-{
-    try
-    {
-        // Coba cari user yang sudah dilacak dulu
-        var trackedUser = _context.ChangeTracker.Entries<User>()
-                                  .FirstOrDefault(e => e.Entity.Id == id)?.Entity;
-
-        if (trackedUser != null)
-        {
-            // Kalau sudah dilacak, langsung hapus dari tracking yang sama
-            _context.Users.Remove(trackedUser);
-        }
-        else
-        {
-            // Kalau belum dilacak, ambil dari DB tanpa tracking
-            var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id);
-            if (user == null)
-                throw new Exception("User not found or already deleted.");
-
-            // Tambahkan ke context baru sebagai entity yang akan dihapus
-            _context.Entry(user).State = EntityState.Deleted;
+            _userManager = userManager;
         }
 
-        await _context.SaveChangesAsync();
-    }
-    catch (DbUpdateConcurrencyException)
-    {
-        throw new Exception("User already deleted or modified by another process.");
-    }
-}
+        public async Task<ApplicationUser?> GetUserByIdAsync(string id)
+        {
+            return await _userManager.FindByIdAsync(id);
+        }
 
+        public async Task<List<ApplicationUser>> GetAllUsersAsync()
+        {
+            return await _userManager.Users.ToListAsync();
+        }
 
+        public async Task<bool> CreateUserAsync(ApplicationUser user, string password)
+        {
+            var result = await _userManager.CreateAsync(user, password);
+            return result.Succeeded;
+        }
+
+        public async Task<bool> UpdateUserAsync(ApplicationUser user)
+        {
+            var result = await _userManager.UpdateAsync(user);
+            return result.Succeeded;
+        }
+
+        public async Task<bool> DeleteUserAsync(string id)
+        {
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null) return false;
+
+            var result = await _userManager.DeleteAsync(user);
+            return result.Succeeded;
+        }
+
+        public async Task<IList<string>> GetUserRolesAsync(ApplicationUser user)
+        {
+            return await _userManager.GetRolesAsync(user);
+        }
+
+        public async Task<bool> AddUserToRoleAsync(ApplicationUser user, string roleName)
+        {
+            var result = await _userManager.AddToRoleAsync(user, roleName);
+            return result.Succeeded;
+        }
+
+        public async Task<bool> RemoveUserFromRoleAsync(ApplicationUser user, string roleName)
+        {
+            var result = await _userManager.RemoveFromRoleAsync(user, roleName);
+            return result.Succeeded;
+        }
+    }
 }

@@ -61,27 +61,30 @@
         </div>
     </div>
     <div class="p-6 space-y-6">
+    <!-- ...existing code... -->
+
+    <!-- Table Occupants -->
     <div class="overflow-x-auto">
-        @if (PagedOccupants != null && PagedOccupants.Any())
-        {
-            <table class="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
-                <thead class="bg-gradient-to-b from-red-700 to-black">
-                    <tr>
-                        <th class="px-4 py-2 text-white">Employee name</th>
-                        <th class="px-4 py-2 text-white">NRP</th>
-                        <th class="px-4 py-2 text-white">Phone</th>
-                        <th class="px-4 py-2 text-white">Position</th>
-                        <th class="px-4 py-2 text-white">Rank</th>
-                        <th class="px-4 py-2 text-white">Arrived Date</th>
-                        <th class="px-4 py-2 text-white">Departed Date</th>
-                        <th class="px-4 py-2 text-white">Building</th>
-                        <th class="px-4 py-2 text-white">Floor</th>
-                        <th class="px-4 py-2 text-white">Room</th>
-                        <th class="px-4 py-2 text-white">Status</th>
-                        <th class="px-4 py-2 text-white">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
+        <table class="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
+            <thead class="bg-gradient-to-b from-red-700 to-black">
+                <tr>
+                    <th class="px-4 py-2 text-white">Employee name</th>
+                    <th class="px-4 py-2 text-white">NRP</th>
+                    <th class="px-4 py-2 text-white">Phone</th>
+                    <th class="px-4 py-2 text-white">Position</th>
+                    <th class="px-4 py-2 text-white">Rank</th>
+                    <th class="px-4 py-2 text-white">Arrived Date</th>
+                    <th class="px-4 py-2 text-white">Departed Date</th>
+                    <th class="px-4 py-2 text-white">Building</th>
+                    <th class="px-4 py-2 text-white">Floor</th>
+                    <th class="px-4 py-2 text-white">Room</th>
+                    <th class="px-4 py-2 text-white">Status</th>
+                    <th class="px-4 py-2 text-white">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (PagedOccupants.Any())
+                {
                     @foreach (var occupant in PagedOccupants)
                     {
                         <tr class="border-b hover:bg-gray-50">
@@ -101,17 +104,12 @@
                                 </span>
                             </td>
                             <td class="px-4 py-2 space-x-2">
-                                <button class="px-2 py-1 bg-blue-500 text-white rounded" 
-                                        @onclick="async () => await ShowDetail(occupant)">
-                                    Detail
-                                </button>
-
+                                <button class="px-2 py-1 bg-blue-500 text-white rounded" @onclick="async () => await ShowDetail(occupant)">Detail</button>
                                 <button class=@($"px-2 py-1 text-white rounded {(occupant.DepartedAt == null ? "bg-red-500 hover:bg-red-600" : "bg-gray-400 cursor-not-allowed")}")
                                         @onclick="()=>ShowCheckoutModal(occupant.Id)"
                                         disabled="@(occupant.DepartedAt != null)">
                                     Checkout
                                 </button>
-
                                 <button class=@($"px-2 py-1 text-white rounded {(occupant.DepartedAt == null ? "bg-yellow-500 hover:bg-yellow-600" : "bg-gray-400 cursor-not-allowed")}")
                                         @onclick="()=>ShowTransferModal(occupant.Id)"
                                         disabled="@(occupant.DepartedAt != null)">
@@ -120,17 +118,20 @@
                             </td>
                         </tr>
                     }
-                </tbody>
-            </table>
-        }
-        else
-        {
-            <div class="flex flex-col items-center justify-center py-12 bg-white rounded-lg shadow-inner text-gray-500">
-                <i class="fas fa-inbox fa-3x mb-3"></i>
-                <p class="text-lg font-medium">No Occupants found.</p>
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="12" class="col-span-full text-center py-10 text-gray-500">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <p class="text-lg">No Occupants found.</p>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+
+        </table>
             </div>
-        }
-    </div>
 
             @* --- PAGINATION --- *@
             @if (FilteredOccupants.Any() && TotalPages > 1)
@@ -158,7 +159,7 @@
                 </div>
             }
         </div>
-    </div>
+        </div>
 
 
 
@@ -464,11 +465,11 @@
     private bool isLoading = false;
     private ToastContainer? toastContainer;
     private string SearchTerm { get; set; } = "";
-    private List<Occupant>? Occupants;
+    private List<MyApp.Core.Entities.Occupant>? Occupants;
     private List<Position> Positions = new();
     private List<Rank> Ranks = new();
-    private List<Occupant> FilteredOccupants =>
-        Occupants == null ? new List<Occupant>() :
+    private List<MyApp.Core.Entities.Occupant> FilteredOccupants =>
+        Occupants == null ? new List<MyApp.Core.Entities.Occupant>() :
         (string.IsNullOrEmpty(SearchTerm)
             ? Occupants
             : Occupants.Where(o =>
@@ -483,7 +484,7 @@
     private int CurrentPage = 1;
     private const int PageSize = 10;
     private int TotalPages => (int)Math.Ceiling(FilteredOccupants.Count / (double)PageSize);
-    private List<Occupant> PagedOccupants =>
+    private List<MyApp.Core.Entities.Occupant> PagedOccupants =>
         FilteredOccupants.Skip((CurrentPage - 1) * PageSize).Take(PageSize).ToList();
 
     private void ChangePage(int page)
@@ -504,7 +505,7 @@
     private string ModalTitle = "Add Occupant";
     private int AddStep = 1;
     private string? NRPInput;
-    private Occupant SelectedOccupant = new();
+    private MyApp.Core.Entities.Occupant SelectedOccupant = new();
 
     private List<Room>? Rooms;
 
@@ -656,7 +657,7 @@
         ShowModal = false;
     }
 
-    private async Task ShowDetail(Occupant occ)
+    private async Task ShowDetail(MyApp.Core.Entities.Occupant occ)
     {
         SelectedOccupant = occ;
 

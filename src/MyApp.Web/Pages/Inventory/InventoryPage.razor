@@ -9,6 +9,8 @@
 @inject IRepositoryRepository RepositoriesService
 @inject IFileService FileService // Inject FileService for uploads
 @inject ToastService ToastService
+@inject IPermissionService PermissionService
+@inject NavigationManager NavigationManager
 
 <PageTitle>Inventory Management</PageTitle>
 
@@ -20,24 +22,23 @@
             <p class="text-gray-500 mt-1">Manage inventory items, upload files, and generate barcodes/QR codes.</p>
         </div>
 
-            <div class="flex items-center space-x-3 mt-4 md:mt-0 w-full md:w-auto">
-                <div class="relative w-full md:w-72">
-                    <input value="@searchTerm" @oninput="HandleSearchTermChange"
-                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
-                        placeholder="Search Name, Code, Type, Repository..." />
-                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                </div>
-
+        <div class="flex items-center space-x-3 mt-4 md:mt-0 w-full md:w-auto">
+            @if (CanCreate)
+            {
                 <button class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-xl 
                                shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
                         @onclick="AddInventory">
                     <i class="fas fa-plus"></i> Add Inventory
                 </button>
+            }
+            @if (CanView)
+            {
                 <button class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-xl shadow-md flex items-center gap-2"
                         @onclick="DownloadToWord">
-                    <i class="fas fa-file-word"></i> Download Selected
+                    <i class="fas fa-file-word"></i> Download Word
                 </button>
-            </div>
+            }
+        </div>
     </div>
 
     @if (Loading)
@@ -51,7 +52,7 @@
     {
         <div class="overflow-x-auto rounded-xl shadow-md border border-gray-200">
             <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gradient-to-b from-blue-700 to-black">
+                <thead class="bg-gradient-to-b from-red-700 to-black">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                             <InputCheckbox @bind-Value="SelectAll" @onchange="ToggleAll" />
@@ -61,8 +62,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Repository</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Available</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Barcode</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Download</th> <th class="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -87,32 +87,33 @@
                                 }
                             </td>
                             <td class="px-6 py-4 text-center">
-                                @if (!string.IsNullOrEmpty(inv.GeneratedBarcodeValue) || !string.IsNullOrWhiteSpace(inv.Code))
+                                @if (!string.IsNullOrEmpty(inv.GeneratedBarcodeValue))
                                 {
                                     <button class="text-gray-500 hover:text-blue-600" title="Download Barcode/QR"
                                             @onclick="() => DownloadBarcode(inv)">
                                         <i class="fas fa-download"></i>
                                     </button>
                                 }
-                                else
-                                {
-                                    <span class="text-xs text-gray-400">-</span>
-                                }
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                <button class="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-100 transition"
-                                    @onclick="() => ShowDetail(inv)">
-                                    <i class="fas fa-eye mr-1"></i> Detail
-                                </button>
-                                <button
-                                    class="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-100 transition"
-                                    @onclick="() => EditInventory(inv)">
-                                    <i class="fas fa-edit mr-1"></i> Edit
-                                </button>
-                                <button class="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition"
-                                    @onclick="() => ConfirmDelete(inv.Id, inv.Name ?? string.Empty)">
-                                    <i class="fas fa-trash-alt mr-1"></i> Delete
-                                </button>
+                            <td class="px-6 py-4 text-right">
+                                @if (CanView)
+                                {
+                                    <button class="text-green-600 hover:text-green-800 mr-3" @onclick="() => ShowDetail(inv)">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                }
+                                @if (CanUpdate)
+                                {
+                                    <button class="text-indigo-600 hover:text-indigo-800 mr-3" @onclick="() => EditInventory(inv)">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                }
+                                @if (CanDelete)
+                                {
+                                    <button class="text-red-600 hover:text-red-800" @onclick="() => ConfirmDelete(inv.Id, inv.Name)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                }
                             </td>
                         </tr>
                     }
@@ -120,44 +121,19 @@
             </table>
         </div>
 
-        @if (FilteredInventories.Any() && TotalPages > 1)
-        {
-            <div class="mt-8 flex justify-between items-center p-4 bg-gray-50 rounded-xl shadow-inner">
-                <span class="text-sm text-gray-600">
-                    Showing <strong>@((CurrentPage - 1) * PageSize + 1)</strong> to <strong>@(Math.Min(CurrentPage * PageSize, FilteredInventories.Count()))</strong> of <strong>@FilteredInventories.Count()</strong> entries
-                </span>
-                <div class="flex space-x-2">
-                    <button
-                        class="px-4 py-2 text-sm rounded-lg border @(CurrentPage == 1 ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100 text-gray-700")"
-                        @onclick="() => ChangePage(CurrentPage - 1)" disabled="@(CurrentPage == 1)">
-                        <i class="fas fa-chevron-left"></i> Previous
-                    </button>
-
-                    @for (int i = 1; i <= TotalPages; i++)
-                    {
-                        var pageNumber = i;
-                        <button
-                            class="px-4 py-2 text-sm rounded-lg font-medium @(i == CurrentPage ? "bg-blue-600 text-white shadow-md" : "bg-white hover:bg-blue-50 border text-gray-700")"
-                            @onclick="() => ChangePage(pageNumber)">
-                            @i
-                        </button>
-                    }
-
-                    <button
-                        class="px-4 py-2 text-sm rounded-lg border @(CurrentPage == TotalPages ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100 text-gray-700")"
-                        @onclick="() => ChangePage(CurrentPage + 1)" disabled="@(CurrentPage == TotalPages)">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
+        <div class="flex justify-between items-center mt-4">
+            <span class="text-sm text-gray-700">
+                Page @CurrentPage of @TotalPages
+            </span>
+            <div class="flex gap-2">
+                <button @onclick="PreviousPage" disabled="@(CurrentPage == 1)" class="px-4 py-2 text-sm bg-gray-300 rounded-md disabled:opacity-50">
+                    Previous
+                </button>
+                <button @onclick="NextPage" disabled="@(CurrentPage == TotalPages)" class="px-4 py-2 text-sm bg-gray-300 rounded-md disabled:opacity-50">
+                    Next
+                </button>
             </div>
-        }
-        else if (!FilteredInventories.Any() && !Loading)
-        {
-            <div class="text-center py-10 text-gray-500">
-                <i class="fas fa-inbox fa-3x mb-3"></i>
-                <p class="text-lg">No Inventories found.</p>
-            </div>
-        }
+        </div>
     }
 
     @if (ShowModal)
@@ -166,9 +142,6 @@
             <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl relative max-h-[90vh] overflow-y-auto">
 
                 <div class="border-b px-6 py-4 flex justify-between items-center sticky top-0 bg-white z-10">
-                    <div class="absolute -right-20 -top-20 opacity-10 pointer-events-none">
-                        <img src="/assets/images/mock.png" class="w-72 h-72 object-cover" alt="watermark" />
-                    </div>
                     <h2 class="text-2xl font-bold text-gray-800">@ModalTitle</h2>
                     <button class="text-gray-400 hover:text-gray-600" @onclick="CloseModal">
                         <i class="fas fa-times fa-lg"></i>
@@ -299,39 +272,25 @@
             </div>
         </div>
     }
-
-     @* --- CONFIRMATION MODAL --- *@
-    @if (ShowConfirmModal)
-    {
-        <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 animate-fade-in">
-            <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-slide-up">
-                <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 text-red-600">
-                    <i class="fas fa-exclamation-triangle"></i> Confirm Delete
-                </h3>
-                <p class="text-gray-700 mb-6">@ConfirmMessage</p>
-                <div class="flex justify-end space-x-3">
-                    <button class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-medium"
-                        @onclick="CancelDelete">Cancel</button>
-                    <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium"
-                        @onclick="DeleteConfirmed">Delete</button>
-                </div>
-            </div>
-        </div>
-    }
 </div>
 
 @code {
-    private List<Inventory> Inventories = new();
-    private Inventory Selected = new();
-    private List<Repository> Repositories = new();
-    private List<InventoryType> InventoryTypes = new();
+    private List<MyApp.Core.Entities.Inventory> Inventories = new();
+    private MyApp.Core.Entities.Inventory Selected = new();
+    private List<Repository> Repositories;
+    private List<InventoryType> InventoryTypes;
     private bool Loading = true;
-    private string searchTerm = string.Empty;
     private bool ShowModal = false;
     private string ModalMode = ""; // "Add", "Edit", or "Detail"
     private string ModalTitle = "";
     private string? GeneratedBarcodeBase64;
 
+    // Add these properties at the top
+    private bool CanView = false;
+    private bool CanCreate = false;
+    private bool CanUpdate = false;
+    private bool CanDelete = false;
+    
     #region Select All Logic
     private bool SelectAll = false;
     private void ToggleAll(ChangeEventArgs e)
@@ -344,34 +303,20 @@
     }
     #endregion
 
-    #region Pagination & Search Logic
+    #region Pagination Logic
     private int CurrentPage = 1;
     private int PageSize = 10; // You can change the page size
-    private int TotalPages => (int)Math.Ceiling(FilteredInventories.Count() / (double)PageSize);
-    private IEnumerable<Inventory> FilteredInventories =>
-        string.IsNullOrWhiteSpace(searchTerm)
-        ? Inventories
-        : Inventories.Where(i =>
-            (i.Name ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-            (i.Code ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-            (i.InventoryType?.TypeName ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-            (i.Repository?.Name ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
-        );
+    private int TotalPages => (int)Math.Ceiling(Inventories.Count / (double)PageSize);
+    private IEnumerable<MyApp.Core.Entities.Inventory> PagedInventories => Inventories.Skip((CurrentPage - 1) * PageSize).Take(PageSize);
 
-    private IEnumerable<Inventory> PagedInventories => FilteredInventories.Skip((CurrentPage - 1) * PageSize).Take(PageSize);
-
-    private void ChangePage(int page)
+    private void NextPage()
     {
-        if (page >= 1 && page <= TotalPages)
-        {
-            CurrentPage = page;
-        }
+        if (CurrentPage < TotalPages) CurrentPage++;
     }
 
-    private void HandleSearchTermChange(ChangeEventArgs e)
+    private void PreviousPage()
     {
-        searchTerm = e.Value?.ToString() ?? string.Empty;
-        CurrentPage = 1;
+        if (CurrentPage > 1) CurrentPage--;
     }
     #endregion
 
@@ -387,15 +332,23 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Check permissions first
+        CanView = await PermissionService.HasPermissionAsync("inventories", "view");
+        if (!CanView)
+        {
+            NavigationManager.NavigateTo("/unauthorized");
+            return;
+        }
+
+        CanCreate = await PermissionService.HasPermissionAsync("inventories", "create");
+        CanUpdate = await PermissionService.HasPermissionAsync("inventories", "update");
+        CanDelete = await PermissionService.HasPermissionAsync("inventories", "delete");
+
         Loading = true;
         Inventories = await InventoryService.GetAllAsync();
         Repositories = await RepositoriesService.GetAllAsync();
         InventoryTypes = await InventoryTypesService.GetAllAsync();
         
-        // IMPROVEMENT 3: Eagerly load related data for Type and Repository
-        // NOTE: Ensure your InventoryService.GetAllAsync() uses .Include() for InventoryType and Repository
-        // Example in your repository: _context.Inventories.Include(i => i.InventoryType).Include(i => i.Repository).ToListAsync();
-
         // Load files
         var photos = await FileService.GetFilesByCategoryAsync("InventoryPhoto");
         PhotoByInventory = photos.GroupBy(f => f.OwnerId).ToDictionary(g => g.Key, g => g.First());
@@ -408,37 +361,34 @@
 
     private async Task DownloadToWord()
     {
-        var selected = Inventories.Where(i => i.IsSelected).ToList();
-        if (!selected.Any()) return;
-        // Ensure each selected item has a generated barcode image (server may not have stored it)
-        foreach (var inv in selected)
+        if (!CanView)
         {
-            if (string.IsNullOrWhiteSpace(inv.GeneratedBarcodeValue) && !string.IsNullOrWhiteSpace(inv.Code))
-            {
-                inv.GeneratedBarcodeValue = GenerateBarcodeImage(inv.Code, inv.BarcodeToGenerate);
-            }
+            await ToastService.ShowError("You don't have permission to download inventory data");
+            return;
         }
 
+        var selected = Inventories.Where(i => i.IsSelected).ToList();
+        if (!selected.Any()) return;
+        
         var file = await WordExporter.ExportBarcodesToWordAsync(selected);
         var fileName = $"Inventory_Barcodes_{DateTime.UtcNow:yyyyMMddHHmm}.docx";
         using var streamRef = new DotNetStreamReference(new MemoryStream(file));
         await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
     }
 
-    private async Task DownloadBarcode(Inventory inv)
+    private async Task DownloadBarcode(MyApp.Core.Entities.Inventory inv)
     {
-        // If not generated server-side, generate on-demand from the code
-    string dataUrl = inv.GeneratedBarcodeValue ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(dataUrl) && !string.IsNullOrWhiteSpace(inv.Code))
+        if (!CanView)
         {
-            dataUrl = GenerateBarcodeImage(inv.Code, inv.BarcodeToGenerate);
+            await ToastService.ShowError("You don't have permission to download barcodes");
+            return;
         }
 
-        if (string.IsNullOrWhiteSpace(dataUrl)) return;
+        if (string.IsNullOrEmpty(inv.GeneratedBarcodeValue)) return;
 
-        var base64Data = dataUrl.Split(',')[1];
+        var base64Data = inv.GeneratedBarcodeValue.Split(',')[1];
         var bytes = Convert.FromBase64String(base64Data);
-        var fileName = $"{(string.IsNullOrWhiteSpace(inv.Code) ? "inventory" : inv.Code)}_{inv.BarcodeToGenerate}.png";
+        var fileName = $"{inv.Code}_{inv.BarcodeToGenerate}.png";
 
         using var streamRef = new DotNetStreamReference(new MemoryStream(bytes));
         await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
@@ -458,17 +408,29 @@
 
     private void AddInventory()
     {
-        Selected = new Inventory();
+        if (!CanCreate)
+        {
+            ToastService.ShowError("You don't have permission to add inventory items");
+            return;
+        }
+
+        Selected = new MyApp.Core.Entities.Inventory();
         OpenModal("Add", "Add Inventory");
     }
 
-    private void EditInventory(Inventory inv)
+    private void EditInventory(MyApp.Core.Entities.Inventory inv)
     {
-        Selected = inv; // Consider cloning the object if you don't want direct mutation
+        if (!CanUpdate)
+        {
+            ToastService.ShowError("You don't have permission to edit inventory items");
+            return;
+        }
+
+        Selected = inv;
         OpenModal("Edit", $"Edit Inventory: {inv.Name}");
     }
 
-    private void ShowDetail(Inventory inv)
+    private void ShowDetail(MyApp.Core.Entities.Inventory inv)
     {
         Selected = inv;
         GeneratedBarcodeBase64 = inv.GeneratedBarcodeValue;
@@ -477,36 +439,23 @@
 
     private void ConfirmDelete(int id, string name)
     {
-        // Show a simple confirm modal
-        DeleteIdToConfirm = id;
-        ConfirmMessage = new MarkupString($"Are you sure you want to delete inventory <b>\"{name}\"</b>? This action cannot be undone.");
-        ShowConfirmModal = true;
-    }
-
-    private bool ShowConfirmModal = false;
-    private int DeleteIdToConfirm = 0;
-    private MarkupString ConfirmMessage;
-
-    private async Task DeleteConfirmed()
-    {
-        if (DeleteIdToConfirm == 0) return;
-        try
+        if (!CanDelete)
         {
-            await InventoryService.DeleteAsync(DeleteIdToConfirm);
-            await OnInitializedAsync();
-            ToastService?.ShowInfo("Inventory successfully deleted.");
+            ToastService.ShowError("You don't have permission to delete inventory items");
+            return;
         }
-        catch
-        {
-            ToastService?.ShowError("Failed to delete inventory.");
-        }
-        ShowConfirmModal = false;
-    }
 
-    private void CancelDelete() => ShowConfirmModal = false;
+        // TODO: Implement confirmation delete modal
+    }
 
     private async Task SaveInventory()
     {
+        if ((Selected.Id == 0 && !CanCreate) || (Selected.Id != 0 && !CanUpdate))
+        {
+            await ToastService.ShowError("You don't have permission to perform this action");
+            return;
+        }
+
         // Generate barcode and store it in the entity before saving
         if (!string.IsNullOrWhiteSpace(Selected.Code))
         {
@@ -555,95 +504,11 @@
                 Format = ZXing.BarcodeFormat.CODE_128,
                 Options = new ZXing.Common.EncodingOptions { Height = 80, Width = 250, Margin = 2 }
             };
-
             var pixelData = writer.Write(code);
-
-            // Create a 32bpp ARGB bitmap and copy pixels into it. ZXing PixelData may be 3 bytes per pixel (RGB24)
-            // or 4 bytes per pixel (RGB32). We must handle both and also ensure correct channel ordering (ZXing uses R,G,B).
-            using var bitmap = new System.Drawing.Bitmap(pixelData.Width, pixelData.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            var rect = new System.Drawing.Rectangle(0, 0, pixelData.Width, pixelData.Height);
-            var bmpData = bitmap.LockBits(rect, System.Drawing.Imaging.ImageLockMode.WriteOnly, bitmap.PixelFormat);
-
-            try
-            {
-                int width = pixelData.Width;
-                int height = pixelData.Height;
-                int destStride = Math.Abs(bmpData.Stride);
-                int destBytes = destStride * height;
-
-                // If ZXing returned RGB24 (3 bytes per pixel)
-                if (pixelData.Pixels.Length == width * height * 3)
-                {
-                    var dest = new byte[width * height * 4];
-                    for (int y = 0; y < height; y++)
-                    {
-                        for (int x = 0; x < width; x++)
-                        {
-                            int srcIndex = (y * width + x) * 3;
-                            int dstIndex = (y * width + x) * 4;
-                            // ZXing pixel order is R,G,B. System.Drawing expects B,G,R,A in memory for Format32bppArgb
-                            dest[dstIndex + 0] = pixelData.Pixels[srcIndex + 2]; // B
-                            dest[dstIndex + 1] = pixelData.Pixels[srcIndex + 1]; // G
-                            dest[dstIndex + 2] = pixelData.Pixels[srcIndex + 0]; // R
-                            dest[dstIndex + 3] = 255; // A
-                        }
-                    }
-
-                    // If stride equals width*4, copy whole buffer; otherwise copy row by row respecting stride
-                    if (destStride == width * 4)
-                    {
-                        System.Runtime.InteropServices.Marshal.Copy(dest, 0, bmpData.Scan0, dest.Length);
-                    }
-                    else
-                    {
-                        for (int y = 0; y < height; y++)
-                        {
-                            var srcOffset = y * width * 4;
-                            var dstPtr = IntPtr.Add(bmpData.Scan0, y * bmpData.Stride);
-                            System.Runtime.InteropServices.Marshal.Copy(dest, srcOffset, dstPtr, width * 4);
-                        }
-                    }
-                }
-                else if (pixelData.Pixels.Length == width * height * 4)
-                {
-                    // ZXing returned 4 bytes per pixel (likely R,G,B,A). Convert to BGRA/ARGB expected by bitmap memory layout.
-                    var dest = new byte[width * height * 4];
-                    for (int i = 0; i < width * height; i++)
-                    {
-                        int srcIndex = i * 4;
-                        int dstIndex = i * 4;
-                        // src: R,G,B,A -> dst: B,G,R,A
-                        dest[dstIndex + 0] = pixelData.Pixels[srcIndex + 2]; // B
-                        dest[dstIndex + 1] = pixelData.Pixels[srcIndex + 1]; // G
-                        dest[dstIndex + 2] = pixelData.Pixels[srcIndex + 0]; // R
-                        dest[dstIndex + 3] = pixelData.Pixels[srcIndex + 3]; // A
-                    }
-
-                    if (destStride == width * 4)
-                    {
-                        System.Runtime.InteropServices.Marshal.Copy(dest, 0, bmpData.Scan0, dest.Length);
-                    }
-                    else
-                    {
-                        for (int y = 0; y < height; y++)
-                        {
-                            var srcOffset = y * width * 4;
-                            var dstPtr = IntPtr.Add(bmpData.Scan0, y * bmpData.Stride);
-                            System.Runtime.InteropServices.Marshal.Copy(dest, srcOffset, dstPtr, width * 4);
-                        }
-                    }
-                }
-                else
-                {
-                    // Fallback: try to copy what we can; this avoids crashes but image may be partial
-                    var copyLen = Math.Min(pixelData.Pixels.Length, destBytes);
-                    System.Runtime.InteropServices.Marshal.Copy(pixelData.Pixels, 0, bmpData.Scan0, copyLen);
-                }
-            }
-            finally
-            {
-                bitmap.UnlockBits(bmpData);
-            }
+            using var bitmap = new System.Drawing.Bitmap(pixelData.Width, pixelData.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+            var bitmapData = bitmap.LockBits(new System.Drawing.Rectangle(0, 0, pixelData.Width, pixelData.Height), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+            System.Runtime.InteropServices.Marshal.Copy(pixelData.Pixels, 0, bitmapData.Scan0, pixelData.Pixels.Length);
+            bitmap.UnlockBits(bitmapData);
 
             using var ms = new MemoryStream();
             bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);

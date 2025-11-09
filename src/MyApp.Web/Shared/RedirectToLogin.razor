@@ -1,8 +1,14 @@
 @inject NavigationManager Navigation
 
 @code {
-    protected override void OnInitialized()
+    private bool _firstRender = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        Navigation.NavigateTo("/login", true);
+        if (_firstRender)
+        {
+            _firstRender = false;
+            Navigation.NavigateTo("/login", true);
+        }
     }
 }

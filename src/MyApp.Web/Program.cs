@@ -5,42 +5,27 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using MyApp.Core.Entities;
 using MyApp.Core.Interfaces;
+using MyApp.Infrastructure;
 using MyApp.Infrastructure.Data;
 using MyApp.Infrastructure.Identity;
 using MyApp.Infrastructure.Repositories.Services;
+using MyApp.Infrastructure.Services;
+using MyApp.Web.Authentication;
 using MyApp.Web.Data;
 using MyApp.Web.Helpers;
-using MyApp.Web.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddInfrastructure(builder.Configuration);
+
 // ======================================================
-// DATABASE CONTEXTS
+// BLAZOR SERVER
 // ======================================================
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))));
+builder.Services.AddRazorPages();
+builder.Services.AddServerSideBlazor();
 
-// Identity pakai SQL Server (boleh juga MySQL, asal konsisten)
-
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))));
-
-// // Add Identity
-// builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
-// {
-//     options.Password.RequiredLength = 6;
-//     options.Password.RequireDigit = false;
-//     options.Password.RequireUppercase = false;
-//     options.Password.RequireNonAlphanumeric = false;
-//     options.User.RequireUniqueEmail = true;
-// })
-// .AddEntityFrameworkStores<ApplicationDbContext>()
-// .AddDefaultTokenProviders();
 // ======================================================
 // ASP.NET CORE IDENTITY
 // ======================================================
@@ -50,89 +35,76 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
     options.Password.RequireDigit = false;
     options.Password.RequireUppercase = false;
     options.Password.RequireNonAlphanumeric = false;
-
     options.User.RequireUniqueEmail = true;
-
-    options.SignIn.RequireConfirmedAccount = false;
+    options.SignIn.RequireConfirmedEmail = false;
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 })
-.AddEntityFrameworkStores<ApplicationDbContext>()
+.AddEntityFrameworkStores<AppDbContext>()
+.AddSignInManager()
 .AddDefaultTokenProviders();
 
+// ======================================================
+// COOKIE POLICY
+// ======================================================
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/login";
     options.LogoutPath = "/logout";
     options.AccessDeniedPath = "/forbidden";
     options.Cookie.Name = "MyApp.Auth";
-    options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.None;
-    options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = false;
+
+    if (builder.Environment.IsDevelopment())
+    {
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; // Allow HTTP in dev
+        options.Cookie.SameSite = SameSiteMode.Lax;
+    }
+    else
+    {
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // HTTPS only in production
+        options.Cookie.SameSite = SameSiteMode.Strict;
+    }
+
+    options.ExpireTimeSpan = TimeSpan.FromHours(2);
     options.SlidingExpiration = true;
+
+    options.Events.OnRedirectToLogin = context =>
+    {
+        // Jangan redirect untuk API calls
+        if (context.Request.Path.StartsWithSegments("/api"))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        }
+
+        context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
 });
 
-builder.Services.AddAuthorization();
 
-// ======================================================
-// REDIS (optional, tetap untuk caching umum, bukan auth)
-// ======================================================
-builder.Services.AddStackExchangeRedisCache(options =>
-{
-    options.Configuration = builder.Configuration.GetConnectionString("Redis");
-    options.InstanceName = "MyApp_";
-});
-
-// ======================================================
-// DEPENDENCY INJECTION REPOSITORIES
-// ======================================================
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IPositionRepository, PositionRepository>();
-builder.Services.AddScoped<IRoleRepository, RoleRepository>();
-builder.Services.AddScoped<IUserTypeRepository, UserTypeRepository>();
-builder.Services.AddScoped<IRankRepository, RankRepository>();
-builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
-builder.Services.AddScoped<IRoomRepository, RoomRepository>();
-builder.Services.AddScoped<IRoomCategoryRepository, RoomCategoryRepository>();
-builder.Services.AddScoped<IRoomStatusRepository, RoomStatusRepository>();
-builder.Services.AddScoped<IRoomConditionRepository, RoomConditionRepository>();
-builder.Services.AddScoped<IOccupantRepository, OccupantRepository>();
-builder.Services.AddScoped<IOccupantHistoryRepository, OccupantHistoryRepository>();
-builder.Services.AddScoped<IBuildingRepository, BuildingRepository>();
-builder.Services.AddScoped<IVisitorRepository, VisitorRepository>();
 builder.Services.AddScoped<UploadService>();
 builder.Services.AddScoped<IFileService, FileService>();
-builder.Services.AddScoped<IVendorRepository, VendorRepository>();
-builder.Services.AddScoped<IMaintenanceRequestRepository, MaintenanceRequestRepository>();
-builder.Services.AddScoped<IInventoryTypeRepository, InventoryTypeRepository>();
-builder.Services.AddScoped<IRepositoryRepository, RepositoryRepository>();
-builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
-builder.Services.AddScoped<IInventoryRequestRepository, InventoryRequestRepository>();
-builder.Services.AddScoped<IInventoryHistoryRepository, InventoryHistoryRepository>();
-builder.Services.AddScoped<IWeaponRepository, WeaponRepository>();
-builder.Services.AddScoped<IAlsusRepository, AlsusRepository>();
-builder.Services.AddScoped<IAreaRepository, AreaRepository>();
-builder.Services.AddScoped<ICardRepository, CardRepository>();
-builder.Services.AddScoped<IGateDeviceRepository, GateDeviceRepository>();
-
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddBlazoredToast();
 builder.Services.AddHttpClient();
 
-// ======================================================
-// BLAZOR SERVER
-// ======================================================
-builder.Services.AddRazorPages();
-builder.Services.AddServerSideBlazor();
-builder.Services.AddCascadingAuthenticationState();
+
 builder.Services.AddSingleton<WeatherForecastService>();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>();
 
-builder.Services.AddScoped<ToastService>();
+
 builder.Services.AddScoped<ProtectedSessionStorage>();
 builder.Services.AddScoped<CustomAuthenticationStateProvider>();
-builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
-    sp.GetRequiredService<CustomAuthenticationStateProvider>());
+builder.Services.AddScoped<AuthenticationStateProvider>(provider =>
+    provider.GetRequiredService<CustomAuthenticationStateProvider>());
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<IPermissionService, AccountPermissionModules>();
 
+builder.Services.AddAuthorization();
+
+builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped(sp =>
 {
     var nav = sp.GetRequiredService<NavigationManager>();
@@ -147,6 +119,7 @@ builder.Services.AddSingleton(new TTLockClient(
 ));
 
 builder.Services.AddScoped<DeviceService>();
+builder.Services.AddScoped<UserService, UserService>();
 
 // ======================================================
 // CONTROLLERS
@@ -166,44 +139,82 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     try
     {
-        // Context utama aplikasi
-        var appDbContext = services.GetRequiredService<AppDbContext>();
-        appDbContext.Database.Migrate();
-
-        // Context Identity
-        var identityContext = services.GetRequiredService<ApplicationDbContext>();
-        identityContext.Database.Migrate();
-
-        // --- SEEDING ROLE & USER ADMIN ---
-        var userRepo = services.GetRequiredService<IUserRepository>();
-        var roleRepo = services.GetRequiredService<IRoleRepository>();
+        var context = services.GetRequiredService<AppDbContext>();
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole<int>>>();
         var config = services.GetRequiredService<IConfiguration>();
+        var logger = services.GetRequiredService<ILogger<Program>>();
 
-        const string adminRoleName = "Admin";
-        var adminRole = await roleRepo.GetByNameAsync(adminRoleName);
-        if (adminRole == null)
+        context.Database.Migrate();
+
+        // --- Seed Roles ---
+        var rolesToSeed = new[] { "Admin", "Manager" };
+        foreach (var roleName in rolesToSeed)
         {
-            adminRole = new MyApp.Core.Entities.Role { RoleName = adminRoleName };
-            await roleRepo.AddAsync(adminRole);
+            var roleExists = await roleManager.RoleExistsAsync(roleName);
+            if (!roleExists)
+            {
+                await roleManager.CreateAsync(new IdentityRole<int>(roleName));
+                logger.LogInformation($"{roleName} role created");
+            }
         }
 
-        var adminUserName = config["AdminUser:UserName"];
-        var adminUser = await userRepo.GetByUserNameAsync(adminUserName);
+        // --- Seed Admin User ---
+        var adminUserName = config["AdminUser:UserName"] ?? throw new Exception("AdminUser:UserName not configured");
+        var adminEmail = config["AdminUser:Email"] ?? throw new Exception("AdminUser:Email not configured");
+        var adminPassword = config["AdminUser:Password"] ?? throw new Exception("AdminUser:Password not configured");
+
+        var adminUser = await userManager.FindByNameAsync(adminUserName);
         if (adminUser == null)
         {
-            var newUser = new MyApp.Core.Entities.User
+            var newUser = new ApplicationUser
             {
                 UserName = adminUserName,
-                Email = config["AdminUser:Email"],
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(config["AdminUser:Password"]),
-                RoleId = adminRole.Id,
-                IsActive = true,
-                CreatedBy = "System",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                Email = adminEmail,
+                EmailConfirmed = true
             };
-            await userRepo.AddAsync(newUser);
+
+            var result = await userManager.CreateAsync(newUser, adminPassword);
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(newUser, "Admin");
+                logger.LogInformation("Admin user created and assigned to Admin role");
+            }
+            else
+            {
+                throw new Exception($"Failed to create admin user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
         }
+
+        // --- Seed Manager User ---
+        var managerUserName = config["ManagerUser:UserName"] ?? "manager";
+        var managerEmail = config["ManagerUser:Email"] ?? "manager@flatmanagement.com";
+        var managerPassword = config["ManagerUser:Password"] ?? "Manager@123";
+
+        var managerUser = await userManager.FindByNameAsync(managerUserName);
+        if (managerUser == null)
+        {
+            var newManager = new ApplicationUser
+            {
+                UserName = managerUserName,
+                Email = managerEmail,
+                EmailConfirmed = true
+            };
+
+            var result = await userManager.CreateAsync(newManager, managerPassword);
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(newManager, "Manager");
+                logger.LogInformation("Manager user created and assigned to Manager role");
+            }
+            else
+            {
+                logger.LogWarning($"Failed to create manager user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
+        }
+
+        // --- Seed Menus ---
+        await MenuSeeder.SeedMenusAsync(services);
     }
     catch (Exception ex)
     {
@@ -214,7 +225,7 @@ using (var scope = app.Services.CreateScope())
 
 
 // ======================================================
-// MIDDLEWARE PIPELINE
+// MIDDLEWARE CONFIGURATION
 // ======================================================
 if (!app.Environment.IsDevelopment())
 {
@@ -223,20 +234,35 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-
+app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+// COOKIE POLICY HARUS SEBELUM ROUTING
+app.UseCookiePolicy();
 
 app.UseRouting();
 
-app.UseAuthentication();
+
+// PENTING: Urutan ini harus benar!
+app.UseAuthentication();  // Harus SEBELUM Authorization
 app.UseAuthorization();
 
-// ======================================================
-// ENDPOINTS
-// ======================================================
+// Tambahkan logging middleware untuk debug
+app.Use(async (context, next) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+    logger.LogInformation($"Request: {context.Request.Method} {context.Request.Path}");
+    logger.LogInformation($"IsAuthenticated: {context.User?.Identity?.IsAuthenticated}, User: {context.User?.Identity?.Name}");
+    logger.LogInformation($"Cookies: {string.Join(", ", context.Request.Cookies.Keys)}");
+    await next();
+});
+
 app.MapControllers();
+app.MapRazorPages();
 app.MapBlazorHub();
 app.MapRazorPages();
 app.MapFallbackToPage("/_Host");
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.Run();
