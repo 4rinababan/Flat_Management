@@ -175,6 +175,7 @@
                             DateTime.UtcNow.AddDays(1) : DateTime.UtcNow.AddHours(3),
                         Roles = loginResponse.Roles ?? new List<string>(),
                         LoginTime = DateTime.UtcNow,
+                        PhotoUrl = loginResponse.PhotoUrl,
                         UserId = loginResponse.UserId.ToString(),
                     };
 

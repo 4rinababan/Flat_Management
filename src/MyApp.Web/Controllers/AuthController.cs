@@ -111,6 +111,7 @@ namespace MyApp.Web.Controllers
                         RedirectUrl = "/",
                         UserName = user.UserName,
                         Roles = roles.ToList(),
+                        PhotoUrl = user.PhotoUrl,
                         Email = user.Email,
                         UserId = user.Id
 

@@ -10,5 +10,6 @@
         public string? Email { get; set; }
         public List<string>? Roles { get; set; }
         public bool RequiresTwoFactor { get; set; }
+        public string? PhotoUrl { get; set; }
     }
 }
