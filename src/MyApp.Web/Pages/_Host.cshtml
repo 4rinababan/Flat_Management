@@ -53,12 +53,15 @@
     </div>
 
     <script src="_framework/blazor.server.js"></script>
+    <script src="js/avatarMenu.js"></script>
+    <script src="js/site.js"></script>
     <script>
         lucide.createIcons();
+        // Initialize avatar menu functionality after DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            window.initializeAvatarMenu();
+        });
     </script>
-    <script src="js/owlEyes.js"></script>
-    <script src="js/site.js"></script>
-    <script src="js/avatarMenu.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             new Swiper('.swiper', {

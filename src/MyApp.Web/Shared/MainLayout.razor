@@ -51,10 +51,16 @@
                     @if (showAvatarMenu)
                     {
                         <div id="avatarMenu" class="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg py-2 z-[100]">
-                            <!-- User Info Section -->
-                            <div class="px-4 py-3 border-b border-gray-100">
-                                <p class="text-sm font-semibold text-gray-800">@(userSession?.Username ?? "User Name")</p>
-                                <p class="text-xs text-gray-500">@(userSession?.Roles?.FirstOrDefault() ?? "Role")</p>
+                            <!-- Header with Close Button -->
+                            <div class="flex justify-between items-center px-4 py-2 border-b border-gray-100">
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-800">@(userSession?.Username ?? "User Name")</p>
+                                    <p class="text-xs text-gray-500">@(userSession?.Roles?.FirstOrDefault() ?? "Role")</p>
+                                </div>
+                                <button @onclick="() => showAvatarMenu = false" 
+                                        class="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                    <i class="fas fa-times text-gray-400 hover:text-gray-600"></i>
+                                </button>
                             </div>
                             
                             <!-- Menu Items -->
@@ -62,7 +68,7 @@
                                 <i class="fas fa-user w-5 mr-2"></i>
                                 Profile
                             </a>
-                            <a href="/change-password" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <a @onclick="ShowChangePasswordModal" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
                                 <i class="fas fa-key w-5 mr-2"></i>
                                 Change Password
                             </a>
@@ -87,9 +93,12 @@
     </div>
 </SessionCheck>
 
+<ChangePasswordModal @bind-IsVisible="showChangePasswordModal" OnPasswordChanged="HandlePasswordChanged" />
+
 @code {
     private bool isSidebarOpen = false;
     private bool showAvatarMenu = false;
+    private bool showChangePasswordModal;
     private UserSession? userSession;
 
     [CascadingParameter]
@@ -104,6 +113,15 @@
         }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("initializeAvatarMenu");
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
     private void ToggleSidebar()
     {
         isSidebarOpen = !isSidebarOpen;
@@ -114,9 +132,31 @@
         showAvatarMenu = !showAvatarMenu;
         if (showAvatarMenu)
         {
-            // Add global click handler when menu is shown
             await JS.InvokeVoidAsync("addGlobalClickHandler");
         }
+        else 
+        {
+            await JS.InvokeVoidAsync("removeGlobalClickHandler");
+        }
+    }
+
+    [JSInvokable]
+    public void HandleGlobalClick(string elementId)
+    {
+        if (showAvatarMenu && 
+            elementId != "avatarMenu" && 
+            elementId != "avatarTrigger" && 
+            !elementId.Contains("change-password"))
+        {
+            showAvatarMenu = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowChangePasswordModal()
+    {
+        showChangePasswordModal = true;
+        showAvatarMenu = false;
     }
 
     private async Task LogoutUser()
@@ -125,14 +165,10 @@
         NavManager.NavigateTo("/login");
     }
 
-    // Handle global click event from JS
-    [JSInvokable]
-    public void HandleGlobalClick(string elementId)
+    private async Task HandlePasswordChanged()
     {
-        if (showAvatarMenu && elementId != "avatarMenu" && elementId != "avatarTrigger")
-        {
-            showAvatarMenu = false;
-            StateHasChanged();
-        }
+        // Optionally handle password change success
+        await AuthStateProvider.GetUserSessionAsync();
     }
 }
+
