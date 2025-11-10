@@ -41,6 +41,7 @@ namespace MyApp.Infrastructure.Data
         // Menu Management
         public DbSet<Menu> Menus { get; set; } = default!;
         public DbSet<MenuPermission> MenuPermissions { get; set; } = default!;
+        public DbSet<SystemSetting> SystemSettings { get; set; } = default!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -103,6 +104,22 @@ namespace MyApp.Infrastructure.Data
                     .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasIndex(e => new { e.MenuId, e.RoleId }).IsUnique();
+            });
+
+            // SystemSetting Configuration
+            modelBuilder.Entity<SystemSetting>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+                entity.Property(e => e.Key).HasMaxLength(100).IsRequired();
+                
+                // Update: Change from 500 to TEXT/LONGTEXT for large data like base64 images
+                entity.Property(e => e.Value)
+                    .HasColumnType("LONGTEXT") // For MySQL: supports up to 4GB
+                    .IsRequired(false);
+                
+                entity.Property(e => e.Description).HasMaxLength(500);
+                entity.HasIndex(e => e.Key).IsUnique();
             });
         }
     }

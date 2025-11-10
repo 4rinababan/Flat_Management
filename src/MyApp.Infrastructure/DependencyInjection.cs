@@ -73,6 +73,7 @@ namespace MyApp.Infrastructure
             services.AddScoped<IAreaRepository, AreaRepository>();
             services.AddScoped<ICardRepository, CardRepository>();
             services.AddScoped<IGateDeviceRepository, GateDeviceRepository>();
+            services.AddScoped<ISystemSettingService, SystemSettingService>();
 
             return services;
         }

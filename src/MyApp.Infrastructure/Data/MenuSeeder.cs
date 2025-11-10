@@ -16,13 +16,14 @@ namespace MyApp.Infrastructure.Data
 
             try
             {
+                // Seed default system settings
+                await SeedDefaultSystemSettings(context);
+
                 // Check if menus already exist
                 var existingMenus = await context.Menus.AnyAsync();
                 if (existingMenus)
                 {
                     Console.WriteLine("Menus already exist, checking permissions...");
-                    
-                    // Check if we need to seed permissions
                     await SeedPermissionsAsync(context, roleManager);
                     return;
                 }
@@ -132,7 +133,44 @@ namespace MyApp.Infrastructure.Data
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error seeding menus: {ex.Message}");
                 throw;
+            }
+        }
+
+        private static async Task SeedDefaultSystemSettings(AppDbContext context)
+        {
+            try
+            {
+                // Check if settings already exist
+                var existingSettings = await context.SystemSettings.AnyAsync();
+                if (existingSettings)
+                {
+                    Console.WriteLine("System settings already exist");
+                    return;
+                }
+
+                Console.WriteLine("Seeding default system settings...");
+
+                var defaultSettings = new List<SystemSetting>
+                {
+                    new SystemSetting
+                    {
+                        Key = "SiteName",
+                        Value = "Flat Management System",
+                        Description = "The name of the application displayed in the header and title",
+                        CreatedAt = DateTime.Now
+                    }
+                };
+
+                await context.SystemSettings.AddRangeAsync(defaultSettings);
+                await context.SaveChangesAsync();
+
+                Console.WriteLine("Default system settings seeded successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error seeding system settings: {ex.Message}");
             }
         }
 
