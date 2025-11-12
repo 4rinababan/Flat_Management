@@ -8,6 +8,7 @@ namespace MyApp.Core.Interfaces
         Task<List<BackupHistory>> GetBackupHistoryAsync(int pageNumber = 1, int pageSize = 20);
         Task<BackupHistory?> GetBackupHistoryByIdAsync(int id);
         Task<bool> RestoreBackupAsync(int historyId, int userId);
+        Task<bool> RestoreBackupFromFileAsync(string filePath, int userId);
         Task<bool> DeleteBackupFileAsync(int historyId);
         Task CleanupOldBackupsAsync();
         

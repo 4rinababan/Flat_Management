@@ -140,5 +140,53 @@ namespace MyApp.Web.Controllers
                 return StatusCode(500, new { message = "Error deleting backup" });
             }
         }
+
+        /// <summary>
+        /// Restore database from uploaded backup file
+        /// </summary>
+        [HttpPost("restore/upload")]
+        public async Task<IActionResult> RestoreFromUpload([FromForm] IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "No file uploaded" });
+
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (userId == 0)
+                return Unauthorized(new { message = "User not authenticated" });
+
+            // Save uploaded file to temp folder
+            var tempFolder = Path.Combine(Path.GetTempPath(), "MyAppRestore");
+            if (!Directory.Exists(tempFolder))
+                Directory.CreateDirectory(tempFolder);
+
+            var fileName = Path.GetFileName(file.FileName);
+            var tempFilePath = Path.Combine(tempFolder, $"{Guid.NewGuid()}_{fileName}");
+
+            try
+            {
+                using (var stream = new FileStream(tempFilePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                // Call restore logic
+                var backupService = HttpContext.RequestServices.GetRequiredService<IBackupService>();
+                var result = await backupService.RestoreBackupFromFileAsync(tempFilePath, userId);
+
+                // Clean up temp file
+                if (System.IO.File.Exists(tempFilePath))
+                    System.IO.File.Delete(tempFilePath);
+
+                if (!result)
+                    return BadRequest(new { message = "Restore failed. Check logs for details." });
+
+                return Ok(new { message = "Database restored successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error restoring from uploaded file");
+                return StatusCode(500, new { message = $"Restore failed: {ex.Message}" });
+            }
+        }
     }
 }

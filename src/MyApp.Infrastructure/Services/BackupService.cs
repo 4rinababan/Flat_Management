@@ -476,6 +476,42 @@ namespace MyApp.Infrastructure.Services
             return $"/backups/{fileName}";
         }
 
+        public async Task<bool> RestoreBackupFromFileAsync(string filePath, int userId)
+        {
+            try
+            {
+                if (!File.Exists(filePath))
+                {
+                    _logger.LogError($"Backup file not found: {filePath}");
+                    return false;
+                }
+
+                var isCompressed = filePath.EndsWith(".gz");
+                string restoreFile = filePath;
+
+                // Decompress if needed
+                if (isCompressed)
+                {
+                    _logger.LogInformation($"   🗜️  Decompressing uploaded backup...");
+                    restoreFile = await DecompressBackupAsync(filePath);
+                }
+
+                await RestoreBackupUsingMySqlBackupNet(restoreFile);
+
+                // Clean up decompressed file
+                if (isCompressed && File.Exists(restoreFile))
+                    File.Delete(restoreFile);
+
+                _logger.LogInformation($"✅ Database restored successfully from uploaded file: {Path.GetFileName(filePath)}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Restore from upload failed");
+                return false;
+            }
+        }
+
         private string FormatBytes(long bytes)
         {
             string[] sizes = { "B", "KB", "MB", "GB", "TB" };
