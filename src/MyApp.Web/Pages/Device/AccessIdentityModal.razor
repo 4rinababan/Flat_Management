@@ -1,0 +1,318 @@
+@using System.Text.Json
+@inject DeviceService DeviceService
+@inject ToastService ToastService
+
+<div>
+    @if (showModal)
+    {
+        <div class="fixed inset-0 bg-black/70 flex justify-center items-center z-[100]">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-fadeIn text-gray-800 dark:text-gray-100">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold">Access Identities — @lockAlias</h2>
+                    <button class="px-3 py-1 rounded-lg bg-red-700 dark:bg-red-800 text-white" @onclick="CloseModal">Close</button>
+                </div>
+
+                @if (isLoading)
+                {
+                    <div class="flex justify-center py-10">
+                        <div class="animate-spin h-8 w-8 border-4 border-blue-400 border-t-transparent rounded-full"></div>
+                    </div>
+                }
+                else
+                {
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <h3 class="font-semibold mb-2"><i class="fas fa-id-card text-blue-400"></i> Cards (@cards.Count)</h3>
+                            @if (!cards.Any())
+                            {
+                                <p class="text-sm text-gray-500">No cards registered.</p>
+                            }
+                            else
+                            {
+                                @foreach (var c in cards)
+                                {
+                                    var cid = GetCardId(c);
+                                    <div class="flex items-center justify-between p-3 mb-2 border rounded-lg">
+                                        <div>
+                                            <div class="font-medium">@GetCardDisplayName(c)</div>
+                                            <div class="text-xs text-gray-500">Card No: @GetCardNumber(c)</div>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <button class="@GetCardButtonClass(cid)" @onclick="() => ToggleDeleteCard(cid)">
+                                                @(deleteCardConfirm.Contains(cid) ? "Confirm Delete" : "Delete")
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold mb-2"><i class="fas fa-fingerprint text-purple-400"></i> Fingerprints (@fingerprints.Count)</h3>
+                            @if (!fingerprints.Any())
+                            {
+                                <p class="text-sm text-gray-500">No fingerprints registered.</p>
+                            }
+                            else
+                            {
+                                @foreach (var f in fingerprints)
+                                {
+                                    var fid = GetFingerprintId(f);
+                                    <div class="flex items-center justify-between p-3 mb-2 border rounded-lg">
+                                        <div>
+                                            <div class="font-medium">@GetFingerprintDisplayName(f)</div>
+                                            <div class="text-xs text-gray-500">ID: @fid</div>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <button class="@GetFingerprintButtonClass(fid)" @onclick="() => ToggleDeleteFingerprint(fid)">
+                                                @(deleteFpConfirm.Contains(fid) ? "Confirm Delete" : "Delete")
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback OnUpdated { get; set; }
+
+    private bool showModal = false;
+    private bool isLoading = true;
+    private long lockId;
+    private string lockAlias = "";
+
+    private List<ICCardDto> cards = new();
+    private List<FingerprintDto> fingerprints = new();
+
+    private HashSet<long> deleteCardConfirm = new();
+    private HashSet<long> deleteFpConfirm = new();
+
+    // CSS helper methods
+    private string GetCardButtonClass(long cardId)
+    {
+        var baseClass = "ml-4 px-3 py-1 text-sm rounded-lg font-semibold transition-all duration-200 active:scale-95";
+        return deleteCardConfirm.Contains(cardId)
+            ? $"{baseClass} bg-red-600 text-white hover:bg-red-700"
+            : $"{baseClass} bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-white hover:bg-gray-300";
+    }
+
+    private string GetFingerprintButtonClass(long fpId)
+    {
+        var baseClass = "ml-4 px-3 py-1 text-sm rounded-lg font-semibold transition-all duration-200 active:scale-95";
+        return deleteFpConfirm.Contains(fpId)
+            ? $"{baseClass} bg-red-600 text-white hover:bg-red-700"
+            : $"{baseClass} bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-white hover:bg-gray-300";
+    }
+
+    // Public opener
+    public async Task OpenModal(long id, string alias)
+    {
+        lockId = id;
+        lockAlias = alias ?? "";
+        showModal = true;
+        isLoading = true;
+        deleteCardConfirm.Clear();
+        deleteFpConfirm.Clear();
+        await LoadIdentities();
+        StateHasChanged();
+    }
+
+    private async Task LoadIdentities()
+    {
+        isLoading = true;
+        try
+        {
+            var resultCards = await DeviceService.GetCardsAsync(lockId);
+            cards = resultCards ?? new List<ICCardDto>();
+        }
+        catch (Exception)
+        {
+            cards = new List<ICCardDto>();
+            ToastService.ShowError("Failed to load cards.");
+        }
+
+        try
+        {
+            var resultFps = await DeviceService.GetFingerprintsAsync(lockId);
+            fingerprints = resultFps ?? new List<FingerprintDto>();
+        }
+        catch (Exception)
+        {
+            fingerprints = new List<FingerprintDto>();
+            ToastService.ShowWarning("Failed to load fingerprints (device may not support).");
+        }
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+    // Toggle confirmation state for card deletion
+    private void ToggleDeleteCard(long cardId)
+    {
+        if (cardId == 0) return;
+
+        if (!deleteCardConfirm.Contains(cardId))
+        {
+            deleteCardConfirm.Add(cardId);
+            _ = CancelConfirmAfterDelay(cardId, isCard: true);
+        }
+        else
+        {
+            _ = DeleteCard(cardId);
+        }
+    }
+
+    private async Task CancelConfirmAfterDelay(long id, bool isCard)
+    {
+        await Task.Delay(5000);
+        if (isCard) deleteCardConfirm.Remove(id); else deleteFpConfirm.Remove(id);
+        StateHasChanged();
+    }
+
+    private async Task DeleteCard(long cardId)
+    {
+        try
+        {
+            await DeviceService.DeleteCardAsync(lockId, cardId);
+            cards.RemoveAll(c => GetCardId(c) == cardId);
+            deleteCardConfirm.Remove(cardId);
+            ToastService.ShowSuccess("Card removed.");
+            if (OnUpdated.HasDelegate) await OnUpdated.InvokeAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            deleteCardConfirm.Remove(cardId);
+            ToastService.ShowError($"Failed to delete card: {ex.Message}");
+        }
+    }
+
+    // Toggle confirmation state for fingerprint deletion
+    private void ToggleDeleteFingerprint(long fpId)
+    {
+        if (fpId == 0) return;
+
+        if (!deleteFpConfirm.Contains(fpId))
+        {
+            deleteFpConfirm.Add(fpId);
+            _ = CancelConfirmAfterDelay(fpId, isCard: false);
+        }
+        else
+        {
+            _ = DeleteFingerprint(fpId);
+        }
+    }
+
+    private async Task DeleteFingerprint(long fpId)
+    {
+        try
+        {
+            await DeviceService.DeleteFingerprintAsync(lockId, fpId);
+            fingerprints.RemoveAll(f => GetFingerprintId(f) == fpId);
+            deleteFpConfirm.Remove(fpId);
+            ToastService.ShowSuccess("Fingerprint removed.");
+            if (OnUpdated.HasDelegate) await OnUpdated.InvokeAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            deleteFpConfirm.Remove(fpId);
+            ToastService.ShowError($"Failed to delete fingerprint: {ex.Message}");
+        }
+    }
+
+    // Reflection-safe helpers to get properties without assuming DTO shape
+    private long GetCardId(ICCardDto c)
+    {
+        if (c == null) return 0;
+        var t = c.GetType();
+        foreach (var name in new[] { "CardId", "Id", "IdCard", "CardID", "CardNoId" })
+        {
+            var p = t.GetProperty(name);
+            if (p != null)
+            {
+                var val = p.GetValue(c);
+                if (val != null && long.TryParse(Convert.ToString(val), out var v)) return v;
+            }
+        }
+        return 0;
+    }
+
+    private string GetCardNumber(ICCardDto c)
+    {
+        if (c == null) return "";
+        var t = c.GetType();
+        foreach (var name in new[] { "CardNo", "CardNumber", "No", "Number", "Value", "Uid" })
+        {
+            var p = t.GetProperty(name);
+            if (p != null)
+            {
+                var val = p.GetValue(c);
+                if (val != null) return val.ToString()!;
+            }
+        }
+        // Fallback to JSON summary
+        try { return JsonSerializer.Serialize(c); } catch { return ""; }
+    }
+
+    private string GetCardDisplayName(ICCardDto c)
+    {
+        if (c == null) return "";
+        var t = c.GetType();
+        foreach (var name in new[] { "Alias", "Name", "Label", "Remark" })
+        {
+            var p = t.GetProperty(name);
+            if (p != null)
+            {
+                var val = p.GetValue(c) as string;
+                if (!string.IsNullOrEmpty(val)) return val;
+            }
+        }
+        var num = GetCardNumber(c);
+        return string.IsNullOrEmpty(num) ? (JsonSerializer.Serialize(c) ?? "") : num;
+    }
+
+    private long GetFingerprintId(FingerprintDto f)
+    {
+        if (f == null) return 0;
+        var t = f.GetType();
+        foreach (var name in new[] { "FpId", "Id", "FingerprintId", "IdFingerprint", "Index" })
+        {
+            var p = t.GetProperty(name);
+            if (p != null)
+            {
+                var val = p.GetValue(f);
+                if (val != null && long.TryParse(Convert.ToString(val), out var v)) return v;
+            }
+        }
+        return 0;
+    }
+
+    private string GetFingerprintDisplayName(FingerprintDto f)
+    {
+        if (f == null) return "";
+        var t = f.GetType();
+        foreach (var name in new[] { "Alias", "Name", "Label", "Remark" })
+        {
+            var p = t.GetProperty(name);
+            if (p != null)
+            {
+                var val = p.GetValue(f) as string;
+                if (!string.IsNullOrEmpty(val)) return val;
+            }
+        }
+        var id = GetFingerprintId(f);
+        return id != 0 ? $"Fingerprint {id}" : (JsonSerializer.Serialize(f) ?? "");
+    }
+}

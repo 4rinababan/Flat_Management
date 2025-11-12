@@ -14,6 +14,10 @@ public class DeviceDto
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
 
+    // Di DeviceDto.cs
+public string? ErrMsg { get; set; } // Opsi 1: Jadikan nullable
+// ATAU
+// public string ErrMsg { get; set; } = string.Empty; // Opsi 2: Inisialisasi
 }
 
 
