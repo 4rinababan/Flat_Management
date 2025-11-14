@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MyApp.Core.Interfaces;
 using MyApp.Infrastructure.Data;
 using MyApp.Infrastructure.Redis;
+using MyApp.Infrastructure.Repositories;
 using MyApp.Infrastructure.Repositories.Services;
 using MyApp.Infrastructure.Services;
 using StackExchange.Redis;
@@ -86,6 +87,7 @@ namespace MyApp.Infrastructure
 
             services.AddScoped<IBackupScheduleService, BackupScheduleService>();
             services.AddScoped<IDataCareService, DataCareService>();
+            services.AddScoped<IAssignmentWeaponRepository, AssignmentWeaponRepository>();
 
             // Add this to your service registration
             services.AddHostedService<BackupProcessorHostedService>();

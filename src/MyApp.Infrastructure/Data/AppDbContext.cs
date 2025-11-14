@@ -45,6 +45,7 @@ namespace MyApp.Infrastructure.Data
         public DbSet<BackupSchedule> BackupSchedules { get; set; } = default!;
         public DbSet<BackupHistory> BackupHistories { get; set; } = default!;
         public DbSet<RestoreHistory> RestoreHistories { get; set; } = default!;
+        public DbSet<AssignmentWeapon> AssignmentWeapons { get; set; } = default!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -164,6 +165,21 @@ namespace MyApp.Infrastructure.Data
                 entity.Property(e => e.Status).HasMaxLength(50).IsRequired();
                 entity.HasIndex(e => e.Status);
                 entity.HasIndex(e => e.StartedAt);
+            });
+
+            // AssignmentWeapon Configuration
+            modelBuilder.Entity<AssignmentWeapon>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+                entity.HasOne(e => e.Employee)
+                    .WithMany()
+                    .HasForeignKey(e => e.EmployeeId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(e => e.Weapon)
+                    .WithMany()
+                    .HasForeignKey(e => e.WeaponId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

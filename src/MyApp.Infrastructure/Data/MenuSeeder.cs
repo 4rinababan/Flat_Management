@@ -39,7 +39,7 @@ namespace MyApp.Infrastructure.Data
                     new() { Code = "visitors-management", Name = "Visitors Management", IconName = "user-check", Color = "text-orange-400", Order = 4 },
                     new() { Code = "employees", Name = "Employees", IconName = "briefcase", Color = "text-cyan-400", Url = "/employees", Order = 5 },
                     new() { Code = "building-management", Name = "Building Management", IconName = "building", Color = "text-yellow-400", Order = 6 },
-                    new() { Code = "weapon-management", Name = "Weapon Management", IconName = "shield", Color = "text-red-400", Url = "/weapons", Order = 7 },
+                    new() { Code = "weapon-management", Name = "Weapon Management", IconName = "shield", Color = "text-red-400", Order = 7 },
                     new() { Code = "alsus-management", Name = "Alsus Management", IconName = "shield", Color = "text-red-400", Url = "/alsus", Order = 8 },
                     new() { Code = "inventory-management", Name = "Inventory Management", IconName = "package", Color = "text-indigo-400", Order = 9 },
                     new() { Code = "access-control", Name = "Access Control", IconName = "key", Color = "text-emerald-400", Order = 10 },
@@ -60,6 +60,15 @@ namespace MyApp.Infrastructure.Data
                     new() { Code = "history", Name = "Histories", IconName = "calendar", Color = "text-teal-400", Url = "/occupant-history", Order = 2, ParentId = occupantsParent.Id }
                 };
                 await context.Menus.AddRangeAsync(occupantsSubmenus);
+
+                // Add submenus - Weapon Management
+                var waeponParent = await context.Menus.FirstAsync(m => m.Code == "weapon-management");
+                var weaponSubmenus = new List<Menu>
+                {
+                    new() { Code = "weapons", Name = "Weapons", IconName = "calendar", Color = "text-teal-400", Url = "/weapons", Order = 1, ParentId = waeponParent.Id },
+                    new() { Code = "weapons-assignment", Name = "Weapon Assignment", IconName = "calendar", Color = "text-teal-400", Url = "/weapons/assignment", Order = 2, ParentId = waeponParent.Id },
+                };
+                await context.Menus.AddRangeAsync(weaponSubmenus);
 
                 // Add submenus - Menu Management
                 var administrationParent = await context.Menus.FirstAsync(m => m.Code == "administration");
