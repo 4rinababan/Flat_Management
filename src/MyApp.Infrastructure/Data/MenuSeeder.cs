@@ -199,71 +199,44 @@ namespace MyApp.Infrastructure.Data
         {
             try
             {
-                // Get all menus
+                // Get all menus from DB
                 var allMenus = await context.Menus.ToListAsync();
 
-                // ===== SEED ADMIN PERMISSIONS (Full Access) =====
-                var adminRole = await roleManager.FindByNameAsync("Admin");
-                if (adminRole != null)
+                // Get all roles to seed permissions for
+                var roles = new[] { "Admin", "Manager" };
+
+                foreach (var roleName in roles)
                 {
+                    var role = await roleManager.FindByNameAsync(roleName);
+                    if (role == null) continue;
 
-                    // Check if Admin already has permissions
-                    var existingAdminPermissions = await context.MenuPermissions
-                        .Where(mp => mp.RoleId == adminRole.Id)
-                        .CountAsync();
+                    // Get existing permissions for this role
+                    var existingPermissions = await context.MenuPermissions
+                        .Where(mp => mp.RoleId == role.Id)
+                        .Select(mp => mp.MenuId)
+                        .ToListAsync();
 
-                    if (existingAdminPermissions == 0)
+                    // Find menus that do not have permissions for this role
+                    var missingMenuIds = allMenus
+                        .Where(m => !existingPermissions.Contains(m.Id))
+                        .Select(m => m.Id)
+                        .ToList();
+
+                    if (missingMenuIds.Any())
                     {
-                        var adminPermissions = new List<MenuPermission>();
-                        foreach (var menu in allMenus)
+                        var newPermissions = new List<MenuPermission>();
+                        foreach (var menuId in missingMenuIds)
                         {
-                            adminPermissions.Add(new MenuPermission
-                            {
-                                MenuId = menu.Id,
-                                RoleId = adminRole.Id,
-                                CanView = true,
-                                CanCreate = true,
-                                CanUpdate = true,
-                                CanDelete = true
-                            });
-                        }
+                            var menu = allMenus.First(m => m.Id == menuId);
 
-                        await context.MenuPermissions.AddRangeAsync(adminPermissions);
-                        await context.SaveChangesAsync();
-                    }
-                    else
-                    {
-                    }
-                }
-                else
-                {
-                }
-
-                // ===== SEED MANAGER PERMISSIONS (All except Users) =====
-                var managerRole = await roleManager.FindByNameAsync("Manager");
-                if (managerRole != null)
-                {
-
-                    // Check if Manager already has permissions
-                    var existingManagerPermissions = await context.MenuPermissions
-                        .Where(mp => mp.RoleId == managerRole.Id)
-                        .CountAsync();
-
-                    if (existingManagerPermissions == 0)
-                    {
-                        var managerPermissions = new List<MenuPermission>();
-                        foreach (var menu in allMenus)
-                        {
-                            // Skip "users" menu for Manager
-                            if (menu.Code == "users")
-                            {
+                            // For Manager, skip "users" menu
+                            if (roleName == "Manager" && menu.Code == "users")
                                 continue;
-                            }
 
-                            managerPermissions.Add(new MenuPermission
+                            newPermissions.Add(new MenuPermission
                             {
-                                MenuId = menu.Id,
-                                RoleId = managerRole.Id,
+                                MenuId = menuId,
+                                RoleId = role.Id,
                                 CanView = true,
                                 CanCreate = true,
                                 CanUpdate = true,
@@ -271,19 +244,17 @@ namespace MyApp.Infrastructure.Data
                             });
                         }
 
-                        await context.MenuPermissions.AddRangeAsync(managerPermissions);
-                        await context.SaveChangesAsync();
+                        if (newPermissions.Any())
+                        {
+                            await context.MenuPermissions.AddRangeAsync(newPermissions);
+                            await context.SaveChangesAsync();
+                        }
                     }
-                    else
-                    {
-                    }
-                }
-                else
-                {
                 }
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error seeding permissions: {ex.Message}");
                 throw;
             }
         }
