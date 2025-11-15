@@ -1,8 +1,10 @@
 using DocumentFormat.OpenXml.Math;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using MyApp.Core.Entities;
+using MyApp.Core.Models;
 using MyApp.Infrastructure.Identity;
 using MyApp.Shared.Models;
 using System.Security.Claims;
@@ -109,6 +111,7 @@ namespace MyApp.Web.Controllers
                         RedirectUrl = "/",
                         UserName = user.UserName,
                         Roles = roles.ToList(),
+                        PhotoUrl = user.PhotoUrl,
                         Email = user.Email,
                         UserId = user.Id
 
@@ -310,6 +313,43 @@ namespace MyApp.Web.Controllers
                     Success = false, 
                     Message = "An error occurred during registration" 
                 });
+            }
+        }
+
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordModel model)
+        {
+            try
+            {
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return Unauthorized(new { message = "User not found" });
+                }
+
+                // Add concurrency check
+                var concurrencyStamp = await _userManager.GetSecurityStampAsync(user);
+                
+                var result = await _userManager.ChangePasswordAsync(user, model.OldPassword, model.NewPassword);
+                if (result.Succeeded)
+                {
+                    // Update security stamp to force logout on other sessions
+                    await _userManager.UpdateSecurityStampAsync(user);
+                    
+                    // Sign out the current user
+                    await _signInManager.SignOutAsync();
+                    
+                    return Ok(new { message = "Password changed successfully" });
+                }
+
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                return BadRequest(new { message = errors });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing password");
+                return StatusCode(500, new { message = "An error occurred while changing password. Please try again." });
             }
         }
     }

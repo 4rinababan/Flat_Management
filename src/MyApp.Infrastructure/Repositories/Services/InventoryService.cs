@@ -50,7 +50,31 @@ public class InventoryRepository : IInventoryRepository
         inventory.GeneratedBarcodeValue = GenerateBarcode(inventory.Code ?? inventory.Name ?? string.Empty, inventory.BarcodeToGenerate);
         inventory.UpdatedAt = DateTime.UtcNow;
 
-        _context.Inventories.Update(inventory);
+        // Avoid attaching a second instance with same key if a tracked instance already exists in the ChangeTracker.
+        var tracked = await _context.Inventories.FindAsync(inventory.Id);
+        if (tracked != null)
+        {
+            // update scalar properties on the tracked entity
+            tracked.Name = inventory.Name;
+            tracked.Code = inventory.Code;
+            tracked.InventoryTypeId = inventory.InventoryTypeId;
+            tracked.RepositoryId = inventory.RepositoryId;
+            tracked.Description = inventory.Description;
+            tracked.BarcodeToGenerate = inventory.BarcodeToGenerate;
+            tracked.GeneratedBarcodeValue = inventory.GeneratedBarcodeValue;
+            tracked.IsAvailable = inventory.IsAvailable;
+            tracked.PhotoData = inventory.PhotoData;
+            tracked.DocumentName = inventory.DocumentName;
+            tracked.DocumentContentType = inventory.DocumentContentType;
+            tracked.DocumentData = inventory.DocumentData;
+            tracked.UpdatedAt = inventory.UpdatedAt;
+        }
+        else
+        {
+            // not being tracked yet - attach as modified
+            _context.Inventories.Update(inventory);
+        }
+
         await _context.SaveChangesAsync();
     }
 
@@ -79,16 +103,23 @@ public class InventoryRepository : IInventoryRepository
             var bytes = qrCode.GetGraphic(20);
             return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
         }
-        else
+        else // Barcode128 as PNG
         {
-            var writer = new ZXing.BarcodeWriterSvg
+            var writer = new ZXing.BarcodeWriterPixelData
             {
                 Format = BarcodeFormat.CODE_128,
                 Options = new EncodingOptions { Height = 80, Width = 250, Margin = 2 }
             };
+            var pixelData = writer.Write(value);
+            using var bitmap = new System.Drawing.Bitmap(pixelData.Width, pixelData.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+            var bitmapData = bitmap.LockBits(new System.Drawing.Rectangle(0, 0, pixelData.Width, pixelData.Height), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+            System.Runtime.InteropServices.Marshal.Copy(pixelData.Pixels, 0, bitmapData.Scan0, pixelData.Pixels.Length);
+            bitmap.UnlockBits(bitmapData);
 
-            var svg = writer.Write(value);
-            return $"data:image/svg+xml;base64,{Convert.ToBase64String(Encoding.UTF8.GetBytes(svg.Content))}";
+            using var ms = new MemoryStream();
+            bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+            var bytes = ms.ToArray();
+            return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
         }
     }
 }

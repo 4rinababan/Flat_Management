@@ -1,9 +1,11 @@
 using Blazored.Toast;
+using Blazored.Typeahead;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using MyApp.Core.Entities;
 using MyApp.Core.Interfaces;
 using MyApp.Infrastructure;
@@ -14,6 +16,8 @@ using MyApp.Infrastructure.Services;
 using MyApp.Web.Authentication;
 using MyApp.Web.Data;
 using MyApp.Web.Helpers;
+using MyApp.Web.Device.Service;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,6 +95,7 @@ builder.Services.AddHttpClient();
 
 
 builder.Services.AddSingleton<WeatherForecastService>();
+builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>();
 
 
 builder.Services.AddScoped<ProtectedSessionStorage>();
@@ -99,7 +104,7 @@ builder.Services.AddScoped<AuthenticationStateProvider>(provider =>
     provider.GetRequiredService<CustomAuthenticationStateProvider>());
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IPermissionService, AccountPermissionModules>();
-
+builder.Services.AddScoped<AccessDoorApiService>();
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<ToastService>();
@@ -213,6 +218,11 @@ using (var scope = app.Services.CreateScope())
 
         // --- Seed Menus ---
         await MenuSeeder.SeedMenusAsync(services);
+        await MenuSeeder.SeedMasterDataAsync(context);
+        await MenuSeeder.SeedEmployeesAsync(context);
+        await MenuSeeder.SeedWeaponsAsync(context);
+        await MenuSeeder.SeedAlsusAsync(context);
+        await MenuSeeder.SeedRepositoriesAsync(context);
     }
     catch (Exception ex)
     {
@@ -229,6 +239,7 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
     app.UseHsts();
+    app.UseHttpsRedirection();
 }
 
 app.UseHttpsRedirection();
@@ -257,6 +268,24 @@ app.Use(async (context, next) =>
 app.MapControllers();
 app.MapRazorPages();
 app.MapBlazorHub();
+app.MapRazorPages();
 app.MapFallbackToPage("/_Host");
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+// Configure static files untuk folder backups
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(builder.Environment.ContentRootPath, "backups")),
+    RequestPath = "/backups",
+    ServeUnknownFileTypes = true,
+    DefaultContentType = "application/octet-stream",
+    OnPrepareResponse = ctx =>
+    {
+        // Add headers untuk force download
+        ctx.Context.Response.Headers.Append("Content-Disposition", "attachment");
+    }
+});
 
 app.Run();

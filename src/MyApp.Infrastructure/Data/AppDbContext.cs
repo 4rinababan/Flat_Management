@@ -6,7 +6,7 @@ using MyApp.Infrastructure.Identity;
 
 namespace MyApp.Infrastructure.Data
 {
-    public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>, int>
+    public class AppDbContext : IdentityDbContext<MyApp.Core.Entities.ApplicationUser, IdentityRole<int>, int>
     {
         public AppDbContext(DbContextOptions<AppDbContext> options)
             : base(options) { }
@@ -31,10 +31,23 @@ namespace MyApp.Infrastructure.Data
         public DbSet<InventoryType> InventoryTypes { get; set; } = default!;
         public DbSet<Repository> Repositories { get; set; } = default!;
         public DbSet<Inventory> Inventories { get; set; } = default!;
-        
+        public DbSet<InventoryRequest> InventoryRequests { get; set; } = default!;
+        public DbSet<InventoryHistory> InventoryHistories { get; set; } = default!;
+        public DbSet<Weapon> Weapons { get; set; } = default!;
+        public DbSet<Alsus> Alsuses { get; set; } = default!;
+        public DbSet<Area> Areas { get; set; } = default!;
+        public DbSet<Card> Cards { get; set; } = default!;
+        public DbSet<GateDevice> GateDevices { get; set; } = default!;
         // Menu Management
         public DbSet<Menu> Menus { get; set; } = default!;
         public DbSet<MenuPermission> MenuPermissions { get; set; } = default!;
+        public DbSet<SystemSetting> SystemSettings { get; set; } = default!;
+        public DbSet<BackupSchedule> BackupSchedules { get; set; } = default!;
+        public DbSet<BackupHistory> BackupHistories { get; set; } = default!;
+        public DbSet<RestoreHistory> RestoreHistories { get; set; } = default!;
+        public DbSet<AssignmentWeapon> AssignmentWeapons { get; set; } = default!;
+        
+        public DbSet<AssignmentAlsus> AssignmentAlsuses { get; set; } = default!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -66,6 +79,9 @@ namespace MyApp.Infrastructure.Data
             modelBuilder.Entity<Visitor>().Property(v => v.Id).ValueGeneratedOnAdd();
             modelBuilder.Entity<Vendor>().Property(v => v.Id).ValueGeneratedOnAdd();
             modelBuilder.Entity<MaintenanceRequest>().Property(v => v.Id).ValueGeneratedOnAdd();
+            modelBuilder.Entity<InventoryRequest>().Property(v => v.Id).ValueGeneratedOnAdd();
+            modelBuilder.Entity<Weapon>().Property(w => w.Id).ValueGeneratedOnAdd();
+            modelBuilder.Entity<Alsus>().Property(a => a.Id).ValueGeneratedOnAdd();
 
             // Menu Configuration
             modelBuilder.Entity<Menu>(entity =>
@@ -94,6 +110,95 @@ namespace MyApp.Infrastructure.Data
                     .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasIndex(e => new { e.MenuId, e.RoleId }).IsUnique();
+            });
+
+            // SystemSetting Configuration
+            modelBuilder.Entity<SystemSetting>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+                entity.Property(e => e.Key).HasMaxLength(100).IsRequired();
+                
+                // Update: Change from 500 to TEXT/LONGTEXT for large data like base64 images
+                entity.Property(e => e.Value)
+                    .HasColumnType("LONGTEXT") // For MySQL: supports up to 4GB
+                    .IsRequired(false);
+                
+                entity.Property(e => e.Description).HasMaxLength(500);
+                entity.HasIndex(e => e.Key).IsUnique();
+            });
+
+            // BackupSchedule Configuration
+            modelBuilder.Entity<BackupSchedule>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+                entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+                entity.Property(e => e.Frequency).HasMaxLength(50).IsRequired();
+                entity.Property(e => e.BackupPath).HasMaxLength(500).IsRequired();
+                
+                entity.HasMany(e => e.BackupHistories)
+                    .WithOne(e => e.BackupSchedule)
+                    .HasForeignKey(e => e.BackupScheduleId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // BackupHistory Configuration
+            modelBuilder.Entity<BackupHistory>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+                entity.Property(e => e.BackupType).HasMaxLength(100).IsRequired();
+                entity.Property(e => e.FileName).HasMaxLength(500).IsRequired();
+                entity.Property(e => e.FilePath).HasMaxLength(1000).IsRequired();
+                entity.Property(e => e.Status).HasMaxLength(50).IsRequired();
+                
+                entity.HasIndex(e => e.Status);
+                entity.HasIndex(e => e.StartedAt);
+            });
+
+            // RestoreHistory Configuration
+            modelBuilder.Entity<RestoreHistory>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+                entity.Property(e => e.FileName).HasMaxLength(500).IsRequired();
+                entity.Property(e => e.FilePath).HasMaxLength(1000).IsRequired();
+                entity.Property(e => e.Status).HasMaxLength(50).IsRequired();
+                entity.HasIndex(e => e.Status);
+                entity.HasIndex(e => e.StartedAt);
+            });
+
+            // AssignmentWeapon Configuration
+            modelBuilder.Entity<AssignmentWeapon>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+                entity.HasOne(e => e.Employee)
+                    .WithMany()
+                    .HasForeignKey(e => e.EmployeeId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(e => e.Weapon)
+                    .WithMany()
+                    .HasForeignKey(e => e.WeaponId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // AssignmentAlsus Configuration
+            modelBuilder.Entity<AssignmentAlsus>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+                entity.HasOne(e => e.Employee)
+                    .WithMany()
+                    .HasForeignKey(e => e.EmployeeId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Alsus)
+                    .WithMany()
+                    .HasForeignKey(e => e.AlsusId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

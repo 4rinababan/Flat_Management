@@ -1,0 +1,48 @@
+@using MyApp.Web.Device.Model
+
+<div class="bg-gradient-to-br from-red-900 to-gray-900 rounded-2xl shadow-md p-4 flex flex-col justify-between h-full">
+    <div class="flex justify-between items-start">
+        <div>
+            <h3 class="text-lg font-semibold text-white">@Device.Alias</h3>
+            <p class="text-sm text-gray-500">IP: @(string.IsNullOrEmpty(Device.Ip) ? "-" : Device.Ip)</p>
+            <p class="text-xs text-gray-400">Last Activity: @(Device.LastSeen?.ToString("yyyy-MM-dd HH:mm:ss") ?? "-")</p>
+        </div>
+
+        <div class="flex gap-2">
+            <button class="px-3 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm"
+                    @onclick="() => OnOpenDoor.InvokeAsync(Device.Id)">
+                Open
+            </button>
+            <button class="px-3 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm"
+                    @onclick="() => OnManageCards.InvokeAsync((Device.Id, Device.Alias))">
+                Cards
+            </button>
+        </div>
+    </div>
+
+    <div class="mt-3 flex flex-wrap gap-2 items-center">
+        @{
+            bool bypassEnabled = Device.Settings?.Bypass.GetValueOrDefault() ?? false;
+            bool bypassLockEnabled = Device.Settings?.BypassLock.GetValueOrDefault() ?? false;
+        }
+
+        <button class="px-3 py-1 rounded-md text-sm text-white @(bypassEnabled ? "bg-red-600" : "bg-gray-600")"
+                @onclick="() => OnToggleBypass.InvokeAsync((Device.Id, bypassEnabled))">
+            @(bypassEnabled ? "Disable Bypass" : "Enable Bypass")
+        </button>
+
+        <button class="px-3 py-1 rounded-md text-sm text-white @(bypassLockEnabled ? "bg-yellow-600" : "bg-gray-600")"
+                @onclick="() => OnToggleBypassLock.InvokeAsync((Device.Id, bypassLockEnabled))">
+            @(bypassLockEnabled ? "Unlock Bypass" : "Lock Bypass")
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public DeviceSummaryDto Device { get; set; } = new();
+    [Parameter] public EventCallback<int> OnOpenDoor { get; set; }
+    // Kita tetap gunakan tuple callback untuk manage/toggle agar mudah passing data
+    [Parameter] public EventCallback<(int deviceId, string alias)> OnManageCards { get; set; }
+    [Parameter] public EventCallback<(int deviceId, bool isCurrentlyEnabled)> OnToggleBypass { get; set; }
+    [Parameter] public EventCallback<(int deviceId, bool isCurrentlyEnabled)> OnToggleBypassLock { get; set; }
+}

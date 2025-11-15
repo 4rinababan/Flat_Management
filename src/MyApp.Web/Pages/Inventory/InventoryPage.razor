@@ -1,0 +1,566 @@
+@page "/inventories"
+@using MyApp.Core.Entities
+@using Microsoft.AspNetCore.Components.Forms
+@using MyApp.Core.Interfaces
+@using MyApp.Web.Helper
+@using ZXing
+@using ZXing.Common
+@inject IJSRuntime JS
+@inject IInventoryRepository InventoryService
+@inject IInventoryTypeRepository InventoryTypesService
+@inject IRepositoryRepository RepositoriesService
+@inject IFileService FileService // Inject FileService for uploads
+@inject ToastService ToastService
+@inject IPermissionService PermissionService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Inventory Management</PageTitle>
+
+<div class="bg-white p-6 rounded-2xl shadow-xl border border-gray-100">
+
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 border-b pb-4">
+        <div>
+            <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight">Inventory Management</h2>
+            <p class="text-gray-500 mt-1">Manage inventory items, upload files, and generate barcodes/QR codes.</p>
+        </div>
+
+        <div class="flex items-center space-x-3 mt-4 md:mt-0 w-full md:w-auto">
+            @if (CanCreate)
+            {
+                <button class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-xl 
+                               shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+                        @onclick="AddInventory">
+                    <i class="fas fa-plus"></i> Add Inventory
+                </button>
+            }
+            @if (CanView)
+            {
+                <button class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-xl shadow-md flex items-center gap-2"
+                        @onclick="DownloadToWord">
+                    <i class="fas fa-file-word"></i> Download Word
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (Loading)
+    {
+        <div class="col-span-full text-center py-10 text-gray-500">
+            <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+            <p class="text-lg">Loading inventories...</p>
+        </div>
+    }
+    else
+    {
+        <div class="overflow-x-auto rounded-xl shadow-md border border-gray-200">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gradient-to-b from-red-700 to-black">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            <InputCheckbox @bind-Value="SelectAll" @onchange="ToggleAll" />
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Code</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Repository</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Available</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Download</th> <th class="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    @foreach (var inv in PagedInventories)
+                    {
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4">
+                                <InputCheckbox @bind-Value="inv.IsSelected" />
+                            </td>
+                            <td class="px-6 py-4">@inv.Name</td>
+                            <td class="px-6 py-4">@inv.Code</td>
+                            <td class="px-6 py-4">@inv.InventoryType?.TypeName</td>
+                            <td class="px-6 py-4">@inv.Repository?.Name</td>
+                            <td class="px-6 py-4">
+                                @if (inv.IsAvailable)
+                                {
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Available</span>
+                                }
+                                else
+                                {
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Not Available</span>
+                                }
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                @if (!string.IsNullOrEmpty(inv.GeneratedBarcodeValue))
+                                {
+                                    <button class="text-gray-500 hover:text-blue-600" title="Download Barcode/QR"
+                                            @onclick="() => DownloadBarcode(inv)">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                }
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                @if (CanView)
+                                {
+                                    <button class="text-green-600 hover:text-green-800 mr-3" @onclick="() => ShowDetail(inv)">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                }
+                                @if (CanUpdate)
+                                {
+                                    <button class="text-indigo-600 hover:text-indigo-800 mr-3" @onclick="() => EditInventory(inv)">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                }
+                                @if (CanDelete)
+                                {
+                                    <button class="text-red-600 hover:text-red-800" @onclick="() => ConfirmDelete(inv.Id, inv.Name)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="flex justify-between items-center mt-4">
+            <span class="text-sm text-gray-700">
+                Page @CurrentPage of @TotalPages
+            </span>
+            <div class="flex gap-2">
+                <button @onclick="PreviousPage" disabled="@(CurrentPage == 1)" class="px-4 py-2 text-sm bg-gray-300 rounded-md disabled:opacity-50">
+                    Previous
+                </button>
+                <button @onclick="NextPage" disabled="@(CurrentPage == TotalPages)" class="px-4 py-2 text-sm bg-gray-300 rounded-md disabled:opacity-50">
+                    Next
+                </button>
+            </div>
+        </div>
+    }
+
+    @if (ShowModal)
+    {
+        <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl relative max-h-[90vh] overflow-y-auto">
+
+                <div class="border-b px-6 py-4 flex justify-between items-center sticky top-0 bg-white z-10">
+                    <h2 class="text-2xl font-bold text-gray-800">@ModalTitle</h2>
+                    <button class="text-gray-400 hover:text-gray-600" @onclick="CloseModal">
+                        <i class="fas fa-times fa-lg"></i>
+                    </button>
+                </div>
+
+                @if (ModalMode == "Detail")
+                {
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+                            <div><strong>Name:</strong> @Selected.Name</div>
+                            <div><strong>Code:</strong> @Selected.Code</div>
+                            <div><strong>Type:</strong> @Selected.InventoryType?.TypeName</div>
+                            <div><strong>Repository:</strong> @Selected.Repository?.Name</div>
+                            <div class="md:col-span-2"><strong>Description:</strong> @Selected.Description</div>
+                        </div>
+
+                        <div class="mt-4 border-t pt-4">
+                             <h3 class="font-semibold text-lg mb-2">Attachments</h3>
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                 <div>
+                                     <h4 class="font-semibold">Photo</h4>
+                                     @if (PhotoByInventory.TryGetValue(Selected.Id, out var photo))
+                                     {
+                                         <img src="@($"/secure-files/{photo.Path}")" class="mt-2 border rounded-lg shadow-md max-h-48" />
+                                     }
+                                     else { <p class="text-gray-500">No photo uploaded.</p> }
+                                 </div>
+                                 <div>
+                                     <h4 class="font-semibold">Document</h4>
+                                     @if (DocumentByInventory.TryGetValue(Selected.Id, out var doc))
+                                     {
+                                        <a href="@($"/secure-files/{doc.Path}")" target="_blank" class="text-blue-600 hover:underline">@doc.FileName</a>
+                                     }
+                                     else { <p class="text-gray-500">No document uploaded.</p> }
+                                 </div>
+                             </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(GeneratedBarcodeBase64))
+                        {
+                            <div class="mt-4 border-t pt-4">
+                                <h3 class="font-semibold text-lg">Barcode/QR Code</h3>
+                                <img src="@GeneratedBarcodeBase64" alt="Generated Barcode" class="mt-2 border p-2 rounded-lg shadow-md" />
+                            </div>
+                        }
+
+                        <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+                             <button type="button" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-5 py-2 rounded-lg" @onclick="CloseModal">Close</button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <EditForm Model="@Selected" OnValidSubmit="@SaveInventory" class="p-6">
+                        <DataAnnotationsValidator />
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-gray-700">Name</label>
+                                <InputText class="w-full border px-3 py-2 rounded-lg" @bind-Value="Selected.Name" />
+                            </div>
+                            <div>
+                                <label class="block text-gray-700">Code</label>
+                                <InputText class="w-full border px-3 py-2 rounded-lg" @bind-Value="Selected.Code" />
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-gray-700">Description</label>
+                            <InputTextArea class="w-full border px-3 py-2 rounded-lg" @bind-Value="Selected.Description" />
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-gray-700">Inventory Type</label>
+                                <InputSelect class="w-full border px-3 py-2 rounded-lg" @bind-Value="Selected.InventoryTypeId">
+                                    <option value="0">Select a type...</option>
+                                    @foreach(var type in InventoryTypes) { <option value="@type.Id">@type.TypeName</option> }
+                                </InputSelect>
+                            </div>
+                            <div>
+                                <label class="block text-gray-700">Repository</label>
+                                <InputSelect class="w-full border px-3 py-2 rounded-lg" @bind-Value="Selected.RepositoryId">
+                                     <option value="0">Select a repository...</option>
+                                    @foreach(var repo in Repositories) { <option value="@repo.Id">@repo.Name</option> }
+                                </InputSelect>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 border-t pt-4">
+                            <div>
+                                <label class="block text-gray-700 font-semibold">Photo</label>
+                                <InputFile OnChange="OnPhotoSelected" accept="image/*" class="w-full" />
+                            </div>
+                             <div>
+                                <label class="block text-gray-700 font-semibold">Document (.pdf)</label>
+                                <InputFile OnChange="OnDocumentSelected" accept="application/pdf" class="w-full" />
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 border-t pt-4">
+                            <div>
+                                <label class="block text-gray-700">Barcode Type</label>
+                                <InputSelect class="w-full border px-3 py-2 rounded-lg" @bind-Value="Selected.BarcodeToGenerate">
+                                    <option value="QRCode">QR Code</option>
+                                    <option value="Barcode128">Barcode</option>
+                                </InputSelect>
+                            </div>
+                            <div class="flex items-end">
+                                <button type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg" @onclick="GenerateBarcodePreview">
+                                    Generate Preview
+                                </button>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(GeneratedBarcodeBase64))
+                        {
+                            <div class="mb-4">
+                                <label class="block text-gray-700">Generated Barcode Preview</label>
+                                <img src="@GeneratedBarcodeBase64" alt="Generated Barcode" class="mt-2 border p-2 rounded-lg shadow-md" />
+                            </div>
+                        }
+
+                        <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+                            <button type="button" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-5 py-2 rounded-lg" @onclick="CloseModal">Cancel</button>
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg">Save Inventory</button>
+                        </div>
+                    </EditForm>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<MyApp.Core.Entities.Inventory> Inventories = new();
+    private MyApp.Core.Entities.Inventory Selected = new();
+    private List<Repository> Repositories;
+    private List<InventoryType> InventoryTypes;
+    private bool Loading = true;
+    private bool ShowModal = false;
+    private string ModalMode = ""; // "Add", "Edit", or "Detail"
+    private string ModalTitle = "";
+    private string? GeneratedBarcodeBase64;
+
+    // Add these properties at the top
+    private bool CanView = false;
+    private bool CanCreate = false;
+    private bool CanUpdate = false;
+    private bool CanDelete = false;
+    
+    #region Select All Logic
+    private bool SelectAll = false;
+    private void ToggleAll(ChangeEventArgs e)
+    {
+        SelectAll = (bool)(e.Value ?? false);
+        foreach (var inv in Inventories)
+        {
+            inv.IsSelected = SelectAll;
+        }
+    }
+    #endregion
+
+    #region Pagination Logic
+    private int CurrentPage = 1;
+    private int PageSize = 10; // You can change the page size
+    private int TotalPages => (int)Math.Ceiling(Inventories.Count / (double)PageSize);
+    private IEnumerable<MyApp.Core.Entities.Inventory> PagedInventories => Inventories.Skip((CurrentPage - 1) * PageSize).Take(PageSize);
+
+    private void NextPage()
+    {
+        if (CurrentPage < TotalPages) CurrentPage++;
+    }
+
+    private void PreviousPage()
+    {
+        if (CurrentPage > 1) CurrentPage--;
+    }
+    #endregion
+
+    #region File Upload Logic
+    private IBrowserFile? pendingPhoto;
+    private IBrowserFile? pendingDocument;
+    private Dictionary<int, FileUpload> PhotoByInventory = new();
+    private Dictionary<int, FileUpload> DocumentByInventory = new();
+
+    private void OnPhotoSelected(InputFileChangeEventArgs e) => pendingPhoto = e.File;
+    private void OnDocumentSelected(InputFileChangeEventArgs e) => pendingDocument = e.File;
+    #endregion
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check permissions first
+        CanView = await PermissionService.HasPermissionAsync("inventories", "view");
+        if (!CanView)
+        {
+            NavigationManager.NavigateTo("/unauthorized");
+            return;
+        }
+
+        CanCreate = await PermissionService.HasPermissionAsync("inventories", "create");
+        CanUpdate = await PermissionService.HasPermissionAsync("inventories", "update");
+        CanDelete = await PermissionService.HasPermissionAsync("inventories", "delete");
+
+        Loading = true;
+        Inventories = await InventoryService.GetAllAsync();
+        Repositories = await RepositoriesService.GetAllAsync();
+        InventoryTypes = await InventoryTypesService.GetAllAsync();
+        
+        // Load files
+        var photos = await FileService.GetFilesByCategoryAsync("InventoryPhoto");
+        PhotoByInventory = photos.GroupBy(f => f.OwnerId).ToDictionary(g => g.Key, g => g.First());
+
+        var docs = await FileService.GetFilesByCategoryAsync("InventoryDocs");
+        DocumentByInventory = docs.GroupBy(f => f.OwnerId).ToDictionary(g => g.Key, g => g.First());
+
+        Loading = false;
+    }
+
+    private async Task DownloadToWord()
+    {
+        if (!CanView)
+        {
+            await ToastService.ShowError("You don't have permission to download inventory data");
+            return;
+        }
+
+        var selected = Inventories.Where(i => i.IsSelected).ToList();
+        if (!selected.Any()) return;
+        
+        var file = await WordExporter.ExportBarcodesToWordAsync(selected);
+        var fileName = $"Inventory_Barcodes_{DateTime.UtcNow:yyyyMMddHHmm}.docx";
+        using var streamRef = new DotNetStreamReference(new MemoryStream(file));
+        await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+    }
+
+    private async Task DownloadBarcode(MyApp.Core.Entities.Inventory inv)
+    {
+        if (!CanView)
+        {
+            await ToastService.ShowError("You don't have permission to download barcodes");
+            return;
+        }
+
+        var base64Data = inv.GeneratedBarcodeValue ?? GeneratedBarcodeBase64;
+        if (string.IsNullOrEmpty(base64Data)) return;
+
+        string fileExtension = "png";
+        string prefixPng = "data:image/png;base64,";
+        string prefixSvg = "data:image/svg+xml;base64,";
+
+        if (base64Data.StartsWith(prefixSvg))
+        {
+            base64Data = base64Data.Substring(prefixSvg.Length);
+            fileExtension = "svg";
+        }
+        else if (base64Data.StartsWith(prefixPng))
+        {
+            base64Data = base64Data.Substring(prefixPng.Length);
+            fileExtension = "png";
+        }
+
+        base64Data = base64Data.Replace("\r", "").Replace("\n", "").Trim();
+
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(base64Data);
+        }
+        catch
+        {
+            await ToastService.ShowError("Barcode data is invalid or corrupt.");
+            return;
+        }
+
+        var fileName = $"{inv.Code}_{inv.BarcodeToGenerate}.{fileExtension}";
+        using var streamRef = new DotNetStreamReference(new MemoryStream(bytes));
+        await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+    }
+    
+    private void OpenModal(string mode, string title)
+    {
+        ModalMode = mode;
+        ModalTitle = title;
+        GeneratedBarcodeBase64 = null;
+        pendingPhoto = null;
+        pendingDocument = null;
+        ShowModal = true;
+    }
+
+    private void CloseModal() => ShowModal = false;
+
+    private void AddInventory()
+    {
+        if (!CanCreate)
+        {
+            ToastService.ShowError("You don't have permission to add inventory items");
+            return;
+        }
+
+        Selected = new MyApp.Core.Entities.Inventory();
+        OpenModal("Add", "Add Inventory");
+    }
+
+    private void EditInventory(MyApp.Core.Entities.Inventory inv)
+    {
+        if (!CanUpdate)
+        {
+            ToastService.ShowError("You don't have permission to edit inventory items");
+            return;
+        }
+
+        Selected = inv;
+        OpenModal("Edit", $"Edit Inventory: {inv.Name}");
+    }
+
+    private void ShowDetail(MyApp.Core.Entities.Inventory inv)
+    {
+        Selected = inv;
+        GeneratedBarcodeBase64 = inv.GeneratedBarcodeValue;
+        OpenModal("Detail", $"Inventory Detail: {inv.Name}");
+    }
+
+    private void ConfirmDelete(int id, string name)
+    {
+        if (!CanDelete)
+        {
+            ToastService.ShowError("You don't have permission to delete inventory items");
+            return;
+        }
+
+        // TODO: Implement confirmation delete modal
+    }
+
+    private async Task SaveInventory()
+    {
+        if ((Selected.Id == 0 && !CanCreate) || (Selected.Id != 0 && !CanUpdate))
+        {
+            await ToastService.ShowError("You don't have permission to perform this action");
+            return;
+        }
+
+        // Generate barcode and store it in the entity before saving
+        if (!string.IsNullOrWhiteSpace(Selected.Code))
+        {
+            Selected.GeneratedBarcodeValue = GenerateBarcodeImage(Selected.Code, Selected.BarcodeToGenerate);
+        }
+
+        if (Selected.Id == 0)
+            await InventoryService.AddAsync(Selected); // This should return the created object with its new ID
+        else
+            await InventoryService.UpdateAsync(Selected);
+
+        // Upload files after saving, because we need the ID for the new item
+        if (pendingPhoto != null)
+        {
+            await FileService.SaveFileAsync(pendingPhoto,  "InventoryPhoto",Selected.Id);
+        }
+        if (pendingDocument != null)
+        {
+            await FileService.SaveFileAsync(pendingDocument,"InventoryDocs", Selected.Id);
+        }
+        await OnInitializedAsync(); // Reload all data
+        CloseModal();
+    }
+
+    private void GenerateBarcodePreview()
+    {
+        if (string.IsNullOrWhiteSpace(Selected.Code)) return;
+        GeneratedBarcodeBase64 = GenerateBarcodeImage(Selected.Code, Selected.BarcodeToGenerate);
+    }
+    
+    // Refactored to be a pure function that returns the base64 string
+  private string GenerateBarcodeImage(string code, BarcodeType barcodeType)
+    {
+        byte[] bytes;
+        if (barcodeType == BarcodeType.QRCode)
+        {
+            var qrGenerator = new QRCoder.QRCodeGenerator();
+            var qrData = qrGenerator.CreateQrCode(code, QRCoder.QRCodeGenerator.ECCLevel.Q);
+            var qrCode = new QRCoder.PngByteQRCode(qrData);
+            bytes = qrCode.GetGraphic(20);
+        }
+        @* else // Barcode128
+        {
+            var writer = new ZXing.BarcodeWriterPixelData
+            {
+                Format = ZXing.BarcodeFormat.CODE_128,
+                Options = new ZXing.Common.EncodingOptions { Height = 80, Width = 250, Margin = 2 }
+            };
+            var pixelData = writer.Write(code);
+            using var bitmap = new System.Drawing.Bitmap(pixelData.Width, pixelData.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+            var bitmapData = bitmap.LockBits(new System.Drawing.Rectangle(0, 0, pixelData.Width, pixelData.Height), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+            System.Runtime.InteropServices.Marshal.Copy(pixelData.Pixels, 0, bitmapData.Scan0, pixelData.Pixels.Length);
+            bitmap.UnlockBits(bitmapData);
+
+            using var ms = new MemoryStream();
+            bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+            bytes = ms.ToArray();
+        } *@ 
+        else // Barcode128 as PNG
+        {
+            var writer = new ZXing.BarcodeWriterPixelData
+            {
+                Format = BarcodeFormat.CODE_128,
+                Options = new EncodingOptions { Height = 80, Width = 250, Margin = 2 }
+            };
+            var pixelData = writer.Write(code);
+            using var bitmap = new System.Drawing.Bitmap(pixelData.Width, pixelData.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+            var bitmapData = bitmap.LockBits(new System.Drawing.Rectangle(0, 0, pixelData.Width, pixelData.Height), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+            System.Runtime.InteropServices.Marshal.Copy(pixelData.Pixels, 0, bitmapData.Scan0, pixelData.Pixels.Length);
+            bitmap.UnlockBits(bitmapData);
+
+            using var ms = new MemoryStream();
+            bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+            bytes = ms.ToArray();
+        }
+
+        return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+
+    }
+}

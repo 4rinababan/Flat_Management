@@ -1,0 +1,233 @@
+@page "/access-control/gates"
+@using System.Net.Http.Json
+@using MyApp.Core.Entities
+@using MyApp.Core.Interfaces
+@inject IGateDeviceRepository DeviceRepo
+@inject IAreaRepository AreaRepo  
+@inject HttpClient Http
+@inject ToastService ToastService
+
+<h3 class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-100">Gate Management</h3>
+
+@if (gates == null)
+{
+    <div class="flex justify-center py-10">
+        <div class="animate-spin h-8 w-8 border-4 border-purple-400 border-t-transparent rounded-full"></div>
+    </div>
+}
+else if (!gates.Any())
+{
+    <p class="text-gray-500">No gates found.</p>
+}
+else
+{
+    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-5">
+        @foreach (var gate in gates)
+        {
+            var cardBg = "bg-gradient-to-b from-red-700 to-black dark:from-red-900 dark:to-purple-900";
+
+            <div class="@cardBg border rounded-2xl shadow-lg hover:shadow-2xl hover:scale-[1.03] transition-all duration-200 ease-out p-4 relative flex flex-col items-center text-center text-white">
+                
+                <!-- Setting Icon -->
+                <button class="absolute top-2 right-2 hover:text-yellow-400 transition-transform hover:rotate-90 duration-300"
+                        @onclick="() => OpenSettingsModal(gate)">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                </button>
+
+                <img src="assets/images/gates.png" alt="Gate" class="w-32 h-32 mb-3 opacity-90"/>
+
+                <h4 class="text-md font-semibold truncate w-full">@DisplayText(gate.deviceAlias)</h4>
+                <p class="text-xl opacity-80 mb-2">@DisplayText(gate.deviceName)</p>
+                <p class="text-xl opacity-80 mb-2">Area: @DisplayText(gate.areaName)</p>
+                <p class="text-2xl opacity-80 mb-2">SN: @DisplayText(gate.deviceSn)</p>
+                <p class="text-xl opacity-80 mb-2">Users: @DisplayText(gate.totalEnrolledUser)</p>
+            </div>
+        }
+    </div>
+}
+
+@if (showGateSettingsModal)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-96">
+            <h3 class="text-xl font-bold mb-4">Gate Settings</h3>
+
+            <div class="mb-3">
+                <label class="block text-gray-700 dark:text-gray-200">Device Name</label>
+                <input class="w-full p-2 border rounded" @bind="selectedGate.deviceName" />
+            </div>
+
+            <div class="mb-3">
+                <label class="block text-gray-700 dark:text-gray-200">Device Alias</label>
+                <input class="w-full p-2 border rounded" @bind="selectedGate.deviceAlias" />
+            </div>
+
+            <div class="mb-3">
+                <label class="block text-gray-700 dark:text-gray-200">Area</label>
+                <select class="w-full p-2 border rounded" @bind="selectedGate.areaId">
+                    <option value="">-- Select Area --</option>
+                    @foreach (var area in areas)
+                    {
+                        <option value="@area.Id">@area.Name</option>
+                    }
+                </select>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-4">
+                <button class="px-4 py-2 bg-gray-300 dark:bg-gray-700 rounded" @onclick="CloseGateSettingsModal">Cancel</button>
+                <button class="px-4 py-2 bg-blue-600 text-white rounded" @onclick="SaveGateSettings">Save</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<GateDto> gates;
+    private List<Area> areas;
+    private bool showGateSettingsModal = false;
+    private GateDto selectedGate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        gates = new List<GateDto>();
+        areas = await AreaRepo.GetAllAsync(); // Load semua area untuk dropdown
+
+        try
+        {
+            var response = await Http.GetFromJsonAsync<ApiResponse>("http://localhost:3000/api/v1/devices");
+            if (response?.data != null)
+            {
+                foreach (var apiDevice in response.data)
+                {
+                    var existing = await DeviceRepo.GetByDeviceSNAsync(apiDevice.deviceSn);
+
+            if (existing != null)
+            {
+                bool needUpdate =
+                    string.IsNullOrWhiteSpace(existing.DeviceName) ||
+                    string.IsNullOrWhiteSpace(existing.DeviceAlias) ||
+                    existing.AreaId == null ||
+                    existing.AreaId == 0 ||
+                    existing.DeviceName != apiDevice.deviceName ||
+                    existing.DeviceAlias != apiDevice.deviceAlias;
+
+                if (needUpdate)
+                {
+                    existing.DeviceName = apiDevice.deviceName;
+                    existing.DeviceAlias = apiDevice.deviceAlias;
+
+                    // cari AreaId berdasar nama
+                    var area = areas.FirstOrDefault(a => a.Name == apiDevice.areaName);
+                    if (area != null)
+                        existing.AreaId = area.Id;
+
+                    @* var area = areas.FirstOrDefault(a => a.Name == apiDevice.areaName);
+                    if (area != null)
+                        existing.AreaId = area.Id;
+
+                    existing.UpdatedAt = DateTime.UtcNow; *@
+                }
+            }
+            else
+            {
+                var newDevice = new GateDevice
+                {
+                    DeviceId = apiDevice.id,
+                    DeviceName = apiDevice.deviceName,
+                    DeviceAlias = apiDevice.deviceAlias,
+                    DeviceSn = apiDevice.deviceSn,
+                    IsAttendance = apiDevice.isAttendance,
+                    IsRegistered = apiDevice.isRegistered,
+                    Heartbeat = apiDevice.heartbeat,
+                    AreaId = areas.FirstOrDefault(a => a.Name == apiDevice.areaName)?.Id,
+                    CreatedAt = apiDevice.created_at,
+                    UpdatedAt = apiDevice.updatedAt
+                };
+
+                await DeviceRepo.AddAsync(newDevice);
+            }
+                }
+
+                await DeviceRepo.SaveChangesAsync();
+                gates = response.data;
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Failed to load gates: {ex.Message}");
+        }
+    }
+
+    private string DisplayText(string value) => string.IsNullOrWhiteSpace(value) ? "-" : value;
+
+    private void OpenSettingsModal(GateDto gate)
+    {
+        selectedGate = new GateDto
+        {
+            id = gate.id,
+            deviceName = gate.deviceName,
+            deviceAlias = gate.deviceAlias,
+            areaId = gate.areaId,
+            areaName = gate.areaName
+        };
+        showGateSettingsModal = true;
+    }
+
+    private void CloseGateSettingsModal() => showGateSettingsModal = false;
+
+    private async Task SaveGateSettings()
+    {
+        try
+        {
+            var device = await DeviceRepo.GetByDeviceSNAsync(selectedGate.deviceSn);
+            if (device != null)
+            {
+                device.DeviceName = selectedGate.deviceName;
+                device.DeviceAlias = selectedGate.deviceAlias;
+                device.AreaId = selectedGate.areaId;
+                device.UpdatedAt = DateTime.UtcNow;
+                @* await DeviceRepo.UpdateAsync(device); *@
+                await DeviceRepo.SaveChangesAsync();
+            }
+
+            var gate = gates.FirstOrDefault(g => g.id == selectedGate.id);
+            if (gate != null)
+            {
+                gate.deviceName = selectedGate.deviceName;
+                gate.deviceAlias = selectedGate.deviceAlias;
+                gate.areaId = selectedGate.areaId;
+                gate.areaName = areas.FirstOrDefault(a => a.Id == selectedGate.areaId)?.Name;
+            }
+
+            ToastService.ShowSuccess("Gate settings saved ✅");
+            CloseGateSettingsModal();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Failed to save: {ex.Message}");
+        }
+    }
+
+    public class GateDto
+{
+    public int id { get; set; }
+    public int? areaId { get; set; }   // <--- ini penting
+    public string areaName { get; set; }
+    public string deviceName { get; set; }
+    public string deviceAlias { get; set; }
+    public string deviceSn { get; set; }
+    public string totalEnrolledUser { get; set; }
+    public bool isAttendance { get; set; }
+    public bool isRegistered { get; set; }
+    public int? heartbeat { get; set; }
+    public DateTime updatedAt { get; set; }
+    public DateTime created_at { get; set; }
+}
+
+    public class ApiResponse
+    {
+        public string status { get; set; }
+        public string message { get; set; }
+        public List<GateDto> data { get; set; }
+    }
+}

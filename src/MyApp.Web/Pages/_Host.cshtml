@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simplebar@latest/dist/simplebar.css" />
     <link rel="stylesheet" href="css/custom-simplebar.css" />
     <script src="https://cdn.jsdelivr.net/npm/simplebar@latest/dist/simplebar.min.js"></script>
-
+    <link href="_content/Blazored.Typeahead/blazored-typeahead.css" rel="stylesheet" />
 
     <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
 </head>
@@ -53,12 +53,16 @@
     </div>
 
     <script src="_framework/blazor.server.js"></script>
+    <script src="_content/Blazored.Typeahead/blazored-typeahead.js"></script>
+    <script src="js/avatarMenu.js"></script>
+    <script src="js/site.js"></script>
     <script>
         lucide.createIcons();
+        // Initialize avatar menu functionality after DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            window.initializeAvatarMenu();
+        });
     </script>
-    <script src="js/owlEyes.js"></script>
-    <script src="js/site.js"></script>
-    <script src="js/avatarMenu.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             new Swiper('.swiper', {
@@ -69,14 +73,6 @@
                     prevEl: '.swiper-button-prev'
                 }
             });
-        });
-    </script>
-     <script>
-        // Redirect ke login jika tidak authenticated
-        Blazor.addEventListener('enhancedload', function (e) {
-            if (e.detail.statusCode === 401) {
-                window.location.href = '/login';
-            }
         });
     </script>
 </body>

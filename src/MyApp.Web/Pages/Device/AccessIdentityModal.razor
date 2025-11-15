@@ -1,0 +1,751 @@
+@using System.Text.Json
+@inject DeviceService DeviceService
+@inject ToastService ToastService
+
+<div>
+    @if (showModal)
+    {
+        <div class="fixed inset-0 bg-black/30 flex justify-center items-center z-[100]">
+            <div class="bg-white text-gray-800 p-0 rounded-xl w-full max-w-5xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+                <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-lg font-semibold text-gray-800">
+                            Access Identities — @lockAlias
+                        </h2>
+                        <span class="text-sm text-gray-500">
+                            (@cards.Count cards • @fingerprints.Count fingerprints • @passcodes.Count passcodes)
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-5 bg-gray-50">
+                    @if (isLoading)
+                    {
+                        <div class="flex justify-center py-10">
+                            <div class="animate-spin h-8 w-8 border-4 border-blue-400 border-t-transparent rounded-full"></div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="space-y-5">
+                            <div class="text-sm text-gray-600">
+                                Kelola kartu, sidik jari, dan kode sandi yang terdaftar pada perangkat ini.
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <h3 class="font-semibold text-gray-800 flex items-center">
+                                            <i class="fas fa-id-card text-blue-500 mr-2"></i> Cards (@cards.Count)
+                                        </h3>
+                                    </div>
+
+                                    @if (cards == null || !cards.Any())
+                                    {
+                                        <p class="text-sm text-gray-500 italic">No cards registered.</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="space-y-2">
+                                            @foreach (var c in cards)
+                                            {
+                                                var cid = GetCardId(c);
+                                                <div class="flex items-center justify-between p-3 rounded-lg bg-white border border-gray-200 shadow-sm hover:shadow-md transition">
+                                                    <div>
+                                                        <div class="font-medium text-sm text-gray-800">@GetCardDisplayName(c)</div>
+                                                        <div class="text-xs text-gray-500">Card No: @GetCardNumber(c)</div>
+                                                    </div>
+
+                                                    <div class="flex items-center gap-2">
+                                                        <button class="@GetCardButtonClass(cid)" @onclick="() => ToggleDeleteCard(cid)">
+                                                            @(deleteCardConfirm.Contains(cid) ? "Confirm Delete" : "Delete")
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <h3 class="font-semibold text-gray-800 flex items-center">
+                                            <i class="fas fa-fingerprint text-purple-500 mr-2"></i> Fingerprints (@fingerprints.Count)
+                                        </h3>
+                                    </div>
+
+                                    @if (fingerprints == null || !fingerprints.Any())
+                                    {
+                                        <p class="text-sm text-gray-500 italic">No fingerprints registered.</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="space-y-2">
+                                            @foreach (var f in fingerprints)
+                                            {
+                                                var fid = GetFingerprintId(f);
+                                                <div class="flex items-center justify-between p-3 rounded-lg bg-white border border-gray-200 shadow-sm hover:shadow-md transition">
+                                                    <div>
+                                                        <div class="font-medium text-sm text-gray-800">@GetFingerprintDisplayName(f)</div>
+                                                        <div class="text-xs text-gray-500">ID: @fid</div>
+                                                    </div>
+
+                                                    <div class="flex items-center gap-2">
+                                                        <button class="@GetFingerprintButtonClass(fid)" @onclick="() => ToggleDeleteFingerprint(fid)">
+                                                            @(deleteFpConfirm.Contains(fid) ? "Confirm Delete" : "Delete")
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <h3 class="font-semibold text-gray-800 flex items-center">
+                                            <i class="fas fa-lock text-green-500 mr-2"></i> Passcodes (@passcodes.Count)
+                                        </h3>
+                                    </div>
+
+                                    @if (passcodes == null || !passcodes.Any())
+                                    {
+                                        <p class="text-sm text-gray-500 italic">No passcodes registered.</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="space-y-2">
+                                            @foreach (var p in passcodes)
+                                            {
+                                                var pid = p.PasscodeId;
+                                                <div class="flex items-center justify-between p-3 rounded-lg bg-white border border-gray-200 shadow-sm hover:shadow-md transition">
+                                                    <div>
+                                                        <div class="font-medium text-sm text-gray-800">@p.KeyboardPwdName</div>
+                                                        <div class="text-xs text-gray-500">Code: @p.KeyboardPwd</div>
+                                                        <div class="text-xs text-gray-500">
+                                                            @if (p.StartDate.HasValue && p.EndDate.HasValue)
+                                                            {
+                                                                <span>@p.StartDate.Value.ToString("dd MMM yyyy") - @p.EndDate.Value.ToString("dd MMM yyyy")</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span>Permanent</span>
+                                                            }
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="flex items-center gap-2">
+                                                        <button class="px-3 py-1 bg-yellow-500/40 text-yellow-800 rounded hover:bg-yellow-600 text-xs"
+                                                            @onclick="() => OpenChangePasscodeModal(p)">
+                                                            Edit
+                                                        </button>
+                                                        <button class="@GetPasscodeButtonClass(pid)" @onclick="() => ToggleDeletePasscode(pid)">
+                                                            @(deletePasscodeConfirm.Contains(pid) ? "Confirm Delete" : "Delete")
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                                </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="px-4 py-3 border-t border-gray-200 bg-white flex items-center justify-between shadow-inner">
+                    <div class="flex gap-2">
+                        <button class="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition"
+                                @onclick="() => showAddCardModal = true">
+                            <i class="fas fa-plus mr-2"></i> Add Card
+                        </button>
+
+                        <button class="px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 shadow-sm transition"
+                                @onclick="() => showAddFingerprintModal = true">
+                            <i class="fas fa-plus mr-2"></i> Add Fingerprint
+                        </button>
+                        
+                        <button class="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition"
+                                @onclick="() => OpenChangePasscodeModal(null)">
+                            <i class="fas fa-plus mr-2"></i> Add Passcode
+                        </button>
+                        <button class="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 shadow-sm transition hidden md:inline-flex"
+                                @onclick="LoadIdentities">
+                            <i class="fas fa-sync-alt mr-2"></i> Refresh
+                        </button>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button class="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 shadow-sm transition"
+                                @onclick="CloseModal">Cancel</button>
+                        <button class="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 shadow-sm transition"
+                                @onclick="CloseModal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Add Fingerprint Modal -->
+@if (showAddFingerprintModal)
+{
+    <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[150]">
+        <div class="w-96 bg-gradient-to-br from-red-900 to-gray-900 rounded-lg p-5 shadow-lg border border-gray-800">
+            <h3 class="text-lg font-semibold mb-3 text-gray-400">Add Fingerprint</h3>
+
+            <label class="text-xs text-gray-400">Fingerprint Name / Alias</label>
+            <input @bind="newFingerprintName" class="w-full mt-1 mb-3 p-2 rounded bg-white/3 border border-gray-700 text-gray-100" placeholder="e.g. John - Right Thumb" />
+
+            <div class="flex justify-end gap-2 mt-2">
+                <button class="px-3 py-1 bg-gray-700 rounded text-gray-100 hover:bg-gray-600" @onclick="CloseAddFingerprintModal">Cancel</button>
+                <button class="px-3 py-1 bg-purple-600 rounded text-white hover:bg-purple-500" @onclick="AddFingerprint">Add</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Add Card Modal -->
+@if (showAddCardModal)
+{
+    <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[150]">
+        <div class="w-96 bg-gradient-to-br from-red-900 to-gray-900 rounded-lg p-5 shadow-lg border border-gray-800">
+            <h3 class="text-lg font-semibold mb-3 text-gray-400 ">Add Card</h3>
+
+            <label class="text-xs text-gray-400">Card Name / Alias</label>
+            <input @bind="newCardName" class="w-full mt-1 mb-2 p-2 rounded bg-white/3 border border-gray-700 text-gray-500" placeholder="e.g. Visitor Card" />
+
+            <label class="text-xs text-gray-400">Card Number</label>
+            <input @bind="newCardNumber" class="w-full mt-1 mb-2 p-2 rounded bg-white/3 border border-gray-700 text-gray-500" placeholder="Card number" />
+
+            <label class="text-xs text-gray-400">Valid Days</label>
+            <input type="number" @bind="newCardValidDays" min="1" class="w-full mt-1 mb-3 p-2 rounded bg-white/3 border border-gray-700 text-gray-500" />
+
+            <div class="flex justify-end gap-2 mt-2">
+                <button class="px-3 py-1 bg-gray-700 rounded text-gray-100 hover:bg-gray-600" @onclick="CloseAddCardModal">Cancel</button>
+                <button class="px-3 py-1 bg-blue-600 rounded text-white hover:bg-blue-500" @onclick="AddCard">Add</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showChangePasscodeModal)
+{
+    <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[150]">
+        <div class="w-96 bg-gradient-to-br from-green-900 to-gray-900 rounded-lg p-5 shadow-lg border border-gray-800">
+            <h3 class="text-lg font-semibold mb-3 text-gray-400">@(editingPasscodeId == 0 ? "Add New Passcode" : "Edit Passcode")</h3>
+
+            <label class="text-xs text-gray-400">Passcode Name / Alias</label>
+            <input @bind="editPasscodeName" class="w-full mt-1 mb-2 p-2 rounded bg-white/3 border border-gray-700 text-gray-100" placeholder="e.g. Guest Code" />
+
+            <label class="text-xs text-gray-400">New Passcode (Min 4 digits)</label>
+            <input type="text" @bind="editPasscodeCode" class="w-full mt-1 mb-2 p-2 rounded bg-white/3 border border-gray-700 text-gray-100" placeholder="e.g. 123456" />
+            
+            <label class="text-xs text-gray-400">Start Date</label>
+            <input type="date" @bind="editPasscodeStartDate" class="w-full mt-1 mb-2 p-2 rounded bg-white/3 border border-gray-700 text-gray-100" />
+            
+            <label class="text-xs text-gray-400">End Date</label>
+            <input type="date" @bind="editPasscodeEndDate" class="w-full mt-1 mb-3 p-2 rounded bg-white/3 border border-gray-700 text-gray-100" />
+
+            <div class="flex justify-end gap-2 mt-2">
+                <button class="px-3 py-1 bg-gray-700 rounded text-gray-100 hover:bg-gray-600" @onclick="CloseChangePasscodeModal">Cancel</button>
+                <button class="px-3 py-1 bg-green-600 rounded text-white hover:bg-green-500" @onclick="SavePasscode">@(editingPasscodeId == 0 ? "Add" : "Save Changes")</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback OnUpdated { get; set; }
+
+    private bool showModal = false;
+    private bool isLoading = true;
+    private long lockId;
+    private string lockAlias = "";
+
+    private List<ICCardDto> cards = new();
+    private List<FingerprintDto> fingerprints = new();
+    private List<PasscodeDto> passcodes = new();
+
+    private HashSet<long> deleteCardConfirm = new();
+    private HashSet<long> deleteFpConfirm = new();
+    private HashSet<long> deletePasscodeConfirm = new();
+
+    private bool showAddCardModal = false;
+    private bool showAddFingerprintModal = false;
+    private bool showChangePasscodeModal = false;
+
+    private string newCardName = "";
+    private string newCardNumber = "";
+    private int newCardValidDays = 30;
+
+    private string newFingerprintName = "";
+    private int newFingerprintIndex = 0;
+
+    // State untuk Add/Edit Passcode <-- BARU
+    private long editingPasscodeId = 0;
+    private string editPasscodeName = "";
+    private string editPasscodeCode = "";
+    private DateTime? editPasscodeStartDate = null;
+    private DateTime? editPasscodeEndDate = null;
+
+    // Public opener
+    public async Task OpenModal(long id, string alias)
+    {
+        lockId = id;
+        lockAlias = alias ?? "";
+        showModal = true;
+        isLoading = true;
+        deleteCardConfirm.Clear();
+        deleteFpConfirm.Clear();
+        await LoadIdentities();
+        StateHasChanged();
+    }
+
+    private void CloseAddCardModal()
+    {
+        showAddCardModal = false;
+        newCardName = "";
+        newCardNumber = "";
+        newCardValidDays = 30;
+    }
+
+    private void CloseAddFingerprintModal()
+    {
+        showAddFingerprintModal = false;
+        newFingerprintName = "";
+        newFingerprintIndex = 0;
+    }
+
+    private void CloseChangePasscodeModal() // <-- BARU: Close Change Passcode Modal
+    {
+        showChangePasscodeModal = false;
+        editingPasscodeId = 0;
+        editPasscodeName = "";
+        editPasscodeCode = "";
+        editPasscodeStartDate = null;
+        editPasscodeEndDate = null;
+    }
+
+    private async Task LoadIdentities() // <-- Diperbarui untuk Passcodes
+    {
+        isLoading = true;
+        
+        // Load Cards
+        try
+        {
+            var resultCards = await DeviceService.GetCardsAsync(lockId);
+            cards = resultCards ?? new List<ICCardDto>();
+        }
+        catch (Exception ex)
+        {
+            cards = new List<ICCardDto>();
+            ToastService.ShowError($"Failed to load cards: {ex.Message}");
+        }
+
+        // Load Fingerprints
+        try
+        {
+            var resultFps = await DeviceService.GetFingerprintsAsync(lockId);
+            fingerprints = resultFps ?? new List<FingerprintDto>();
+        }
+        catch (Exception ex)
+        {
+            fingerprints = new List<FingerprintDto>();
+            ToastService.ShowWarning($"Failed to load fingerprints: {ex.Message}");
+        }
+        
+        // Load Passcodes
+        try
+        {
+            var resultPasscodes = await DeviceService.GetPasscodesAsync(lockId);
+            passcodes = resultPasscodes ?? new List<PasscodeDto>();
+        }
+        catch (Exception ex)
+        {
+            passcodes = new List<PasscodeDto>();
+            ToastService.ShowError($"Failed to load passcodes: {ex.Message}");
+        }
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private string GetCardButtonClass(long cardId)
+    {
+        if (deleteCardConfirm.Contains(cardId))
+            return "px-3 py-1 bg-red-600 text-white rounded hover:bg-red-500 text-xs";
+        else
+            return "px-3 py-1 bg-red-900/40 text-red-400 rounded hover:bg-red-700 text-xs";
+    }
+
+    private string GetFingerprintButtonClass(long fpId)
+    {
+        if (deleteFpConfirm.Contains(fpId))
+            return "px-3 py-1 bg-red-600 text-white rounded hover:bg-red-500 text-xs";
+        else
+            return "px-3 py-1 bg-red-900/40 text-red-400 rounded hover:bg-red-700 text-xs";
+    }
+
+    private string GetPasscodeButtonClass(long passcodeId)
+    {
+        if (deletePasscodeConfirm.Contains(passcodeId))
+            return "px-3 py-1 bg-red-600 text-white rounded hover:bg-red-500 text-xs";
+        else
+            return "px-3 py-1 bg-red-900/40 text-red-400 rounded hover:bg-red-700 text-xs";
+    }
+
+
+    private async Task AddCard()
+    {
+        if (string.IsNullOrWhiteSpace(newCardName) || string.IsNullOrWhiteSpace(newCardNumber))
+        {
+            ToastService.ShowError("Card Name & Number Required");
+            return;
+        }
+
+        try
+        {
+            var ok = await DeviceService.AddCardAsync(lockId, newCardName, newCardNumber, newCardValidDays);
+            if (ok)
+            {
+                ToastService.ShowSuccess($"Card \"{newCardName}\" added successfully ✅");
+            }
+            else
+            {
+                ToastService.ShowError("Failed to add card (API returned error).");
+            }
+
+            CloseAddCardModal();
+            await LoadIdentities(); // reload daftar cards
+            if (OnUpdated.HasDelegate) await OnUpdated.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Failed to add card: {ex.Message}");
+        }
+    }
+
+    private async Task AddFingerprint()
+    {
+        if (string.IsNullOrWhiteSpace(newFingerprintName))
+        {
+            ToastService.ShowError("Fingerprint Name is required.");
+            return;
+        }
+
+        try
+        {
+            var random = new Random();
+            string fingerprintNumber = random.Next(10000000, 99999999).ToString();
+
+            var result = await DeviceService.AddFingerprintAsync(lockId, fingerprintNumber, newFingerprintName);
+
+            ToastService.ShowSuccess($"Fingerprint \"{newFingerprintName}\" added successfully ✅");
+            CloseAddFingerprintModal();
+            await LoadIdentities();
+            if (OnUpdated.HasDelegate) await OnUpdated.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Failed to add fingerprint: {ex.Message}");
+        }
+    }
+
+    private void OpenChangePasscodeModal(PasscodeDto? passcode)
+    {
+        if (passcode == null)
+        {
+            // Add New
+            editingPasscodeId = 0;
+            editPasscodeName = "";
+            editPasscodeCode = "";
+            editPasscodeStartDate = DateTime.Now.Date;
+            editPasscodeEndDate = DateTime.Now.AddYears(1).Date;
+        }
+        else
+        {
+            // Edit Existing
+            editingPasscodeId = passcode.PasscodeId;
+            editPasscodeName = passcode.KeyboardPwdName;
+            editPasscodeCode = passcode.KeyboardPwd;
+            editPasscodeStartDate = passcode.StartDate.HasValue ? passcode.StartDate.Value.Date : DateTime.Now.Date;
+            editPasscodeEndDate = passcode.EndDate.HasValue ? passcode.EndDate.Value.Date : DateTime.Now.AddYears(1).Date;
+        }
+        showChangePasscodeModal = true;
+    }
+
+    private async Task SavePasscode()
+    {
+        if (string.IsNullOrWhiteSpace(editPasscodeName) || string.IsNullOrWhiteSpace(editPasscodeCode))
+        {
+            ToastService.ShowError("Name and Passcode are required.");
+            return;
+        }
+        if (editPasscodeCode.Length < 4)
+        {
+            ToastService.ShowError("Passcode must be at least 4 digits.");
+            return;
+        }
+
+        // TBD: Logic for adding new passcode is missing in DeviceService (as per your initial code). 
+        // For now, only the Change API is available. We'll use the Change API to simulate 'Change' (Edit).
+        // To ADD a new passcode, you would need to implement DeviceService.AddPasscodeAsync.
+        // Assuming this is for EDITING/CHANGING existing passcodes for now.
+
+        if (editingPasscodeId == 0)
+        {
+            // Jika ingin menambahkan fitur Add Passcode, Anda perlu API tambahan: 
+            // https://euapi.ttlock.com/v3/keyboardPwd/add
+            ToastService.ShowError("Adding new passcodes is not yet implemented. Please use the Edit feature for existing passcodes.");
+            return;
+        }
+
+        try
+        {
+            var response = await DeviceService.ChangePasscodeAsync(
+                lockId: lockId,
+                keyboardPwdId: editingPasscodeId,
+                keyboardPwdName: editPasscodeName,
+                newKeyboardPwd: editPasscodeCode,
+                newStartDate: editPasscodeStartDate,
+                newEndDate: editPasscodeEndDate
+            );
+
+            if (response.ErrCode == 0)
+            {
+                ToastService.ShowSuccess($"Passcode \"{editPasscodeName}\" updated successfully ✅");
+            }
+            else
+            {
+                ToastService.ShowError($"Failed to update passcode (API error: {response.ErrMsg}).");
+            }
+
+            CloseChangePasscodeModal();
+            await LoadIdentities(); 
+            if (OnUpdated.HasDelegate) await OnUpdated.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Failed to save passcode: {ex.Message}");
+        }
+    }
+
+
+    // Toggle confirmation state for passcode deletion <-- BARU
+    private void ToggleDeletePasscode(long passcodeId)
+    {
+        if (passcodeId == 0) return;
+
+        if (!deletePasscodeConfirm.Contains(passcodeId))
+        {
+            deletePasscodeConfirm.Add(passcodeId);
+            _ = CancelConfirmAfterDelay(passcodeId, isCard: false, isPasscode: true);
+        }
+        else
+        {
+            _ = DeletePasscode(passcodeId);
+        }
+    }
+
+    private async Task CancelConfirmAfterDelay(long id, bool isCard, bool isPasscode = false) // <-- Diperbarui
+    {
+        await Task.Delay(5000);
+        if (isPasscode) deletePasscodeConfirm.Remove(id);
+        else if (isCard) deleteCardConfirm.Remove(id); 
+        else deleteFpConfirm.Remove(id);
+        StateHasChanged();
+    }
+    
+    private async Task DeletePasscode(long passcodeId)
+    {
+        // TBD: Logic for deleting passcode is missing in DeviceService (as per your initial code). 
+        // Anda perlu mengimplementasikan API: https://euapi.ttlock.com/v3/keyboardPwd/delete
+        // Di DeviceService/TTLockClient.
+        ToastService.ShowError("Passcode deletion is not yet implemented (API endpoint missing).");
+        deletePasscodeConfirm.Remove(passcodeId);
+        StateHasChanged();
+
+        // Implementasi sebenarnya akan terlihat seperti ini (memerlukan implementasi di service):
+        /* try
+        {
+            await DeviceService.DeletePasscodeAsync(lockId, passcodeId); 
+            passcodes.RemoveAll(p => p.PasscodeId == passcodeId);
+            deletePasscodeConfirm.Remove(passcodeId);
+            ToastService.ShowSuccess("Passcode removed.");
+            if (OnUpdated.HasDelegate) await OnUpdated.InvokeAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            deletePasscodeConfirm.Remove(passcodeId);
+            ToastService.ShowError($"Failed to delete passcode: {ex.Message}");
+        }
+        */
+    }
+
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+    // Toggle confirmation state for card deletion
+    private void ToggleDeleteCard(long cardId)
+    {
+        if (cardId == 0) return;
+
+        if (!deleteCardConfirm.Contains(cardId))
+        {
+            deleteCardConfirm.Add(cardId);
+            _ = CancelConfirmAfterDelay(cardId, isCard: true);
+        }
+        else
+        {
+            _ = DeleteCard(cardId);
+        }
+    }
+
+    private async Task CancelConfirmAfterDelay(long id, bool isCard)
+    {
+        await Task.Delay(5000);
+        if (isCard) deleteCardConfirm.Remove(id); else deleteFpConfirm.Remove(id);
+        StateHasChanged();
+    }
+
+    private async Task DeleteCard(long cardId)
+    {
+        try
+        {
+            await DeviceService.DeleteCardAsync(lockId, cardId);
+            cards.RemoveAll(c => GetCardId(c) == cardId);
+            deleteCardConfirm.Remove(cardId);
+            ToastService.ShowSuccess("Card removed.");
+            if (OnUpdated.HasDelegate) await OnUpdated.InvokeAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            deleteCardConfirm.Remove(cardId);
+            ToastService.ShowError($"Failed to delete card: {ex.Message}");
+        }
+    }
+
+    // Toggle confirmation state for fingerprint deletion
+    private void ToggleDeleteFingerprint(long fpId)
+    {
+        if (fpId == 0) return;
+
+        if (!deleteFpConfirm.Contains(fpId))
+        {
+            deleteFpConfirm.Add(fpId);
+            _ = CancelConfirmAfterDelay(fpId, isCard: false);
+        }
+        else
+        {
+            _ = DeleteFingerprint(fpId);
+        }
+    }
+
+    private async Task DeleteFingerprint(long fpId)
+    {
+        try
+        {
+            await DeviceService.DeleteFingerprintAsync(lockId, fpId);
+            fingerprints.RemoveAll(f => GetFingerprintId(f) == fpId);
+            deleteFpConfirm.Remove(fpId);
+            ToastService.ShowSuccess("Fingerprint removed.");
+            if (OnUpdated.HasDelegate) await OnUpdated.InvokeAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            deleteFpConfirm.Remove(fpId);
+            ToastService.ShowError($"Failed to delete fingerprint: {ex.Message}");
+        }
+    }
+
+    #region Reflection-safe helpers
+    private long GetCardId(ICCardDto c)
+    {
+        if (c == null) return 0;
+        var t = c.GetType();
+        foreach (var name in new[] { "CardId", "Id", "IdCard", "CardID", "CardNoId" })
+        {
+            var p = t.GetProperty(name);
+            if (p != null)
+            {
+                var val = p.GetValue(c);
+                if (val != null && long.TryParse(Convert.ToString(val), out var v)) return v;
+            }
+        }
+        return 0;
+    }
+
+    private string GetCardNumber(ICCardDto c)
+    {
+        if (c == null) return "";
+        var t = c.GetType();
+        foreach (var name in new[] { "CardNo", "CardNumber", "No", "Number", "Value", "Uid" })
+        {
+            var p = t.GetProperty(name);
+            if (p != null)
+            {
+                var val = p.GetValue(c);
+                if (val != null) return val.ToString()!;
+            }
+        }
+        try { return JsonSerializer.Serialize(c); } catch { return ""; }
+    }
+
+    private string GetCardDisplayName(ICCardDto c)
+    {
+        if (c == null) return "";
+        var t = c.GetType();
+        foreach (var name in new[] { "Alias", "Name", "Label", "Remark", "CardName" })
+        {
+            var p = t.GetProperty(name);
+            if (p != null)
+            {
+                var val = p.GetValue(c) as string;
+                if (!string.IsNullOrEmpty(val)) return val;
+            }
+        }
+        var num = GetCardNumber(c);
+        return string.IsNullOrEmpty(num) ? (JsonSerializer.Serialize(c) ?? "") : num;
+    }
+
+    private long GetFingerprintId(FingerprintDto f)
+    {
+        if (f == null) return 0;
+        var t = f.GetType();
+        foreach (var name in new[] { "FpId", "Id", "FingerprintId", "IdFingerprint", "Index" })
+        {
+            var p = t.GetProperty(name);
+            if (p != null)
+            {
+                var val = p.GetValue(f);
+                if (val != null && long.TryParse(Convert.ToString(val), out var v)) return v;
+            }
+        }
+        return 0;
+    }
+
+    private string GetFingerprintDisplayName(FingerprintDto f)
+    {
+        if (f == null) return "";
+        var t = f.GetType();
+        foreach (var name in new[] { "Alias", "Name", "Label", "Remark", "FingerprintName" })
+        {
+            var p = t.GetProperty(name);
+            if (p != null)
+            {
+                var val = p.GetValue(f) as string;
+                if (!string.IsNullOrEmpty(val)) return val;
+            }
+        }
+        var id = GetFingerprintId(f);
+        return id != 0 ? $"Fingerprint {id}" : (JsonSerializer.Serialize(f) ?? "");
+    }
+    #endregion
+}

@@ -2,43 +2,22 @@ version: "3.9"
 
 services:
   web:
-    image: myapp-web
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - DOTNET_USE_POLLING_FILE_WATCHER=1
-    expose:
-      - "8080"
-    volumes:
-      - dpkeys:/root/.aspnet/DataProtection-Keys
-    depends_on:
-      - db
-
-  db:
-    image: mysql:8.0
-    container_name: myapp-db
-    environment:
-      MYSQL_ROOT_PASSWORD: Passw0rd
-      MYSQL_DATABASE: FMS_DB
-      MYSQL_USER: fms_user
-      MYSQL_PASSWORD: fms_pass
+    container_name: myapp_web
+    build: .
     ports:
-      - "3306:3306"
-    volumes:
-      - dbdata:/var/lib/mysql
+      - "5050:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://0.0.0.0:8080"
 
-  nginx:
-    image: nginx:alpine
-    container_name: myapp-nginx
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx:/etc/nginx/conf.d:ro   # mount folder bukan file
-    depends_on:
-      - web
+      # DATABASE CONFIG
+      DB_HOST: "host.docker.internal"
+      DB_PORT: "3306"
+      DB_USER: "root"
+      DB_PASS: "@nt!Terror88"
 
-volumes:
-  dbdata:
-  dpkeys:
+      ConnectionStrings__DefaultConnection: "server=host.docker.internal;port=3306;database=myappdb;user=root;password=@nt!Terror88;AllowUserVariables=True;"
+
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

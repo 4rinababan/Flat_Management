@@ -229,10 +229,10 @@ Mau saya bikinkan script npm run dev yang otomatis jalanin Tailwind watch + dotn
  dotnet ef database update -s ..\MyApp.Web -- --environment Development
 
 dotnet ef migrations add InitialMigrate --context AppDbContext -s ..\MyApp.Web
- dotnet ef migrations add InitIdentity --context ApplicationIdentityDbContext -s ..\MyApp.Web
+ dotnet ef migrations add InitIdentity --context ApplicationDbContext -s ..\MyApp.Web
 
  dotnet ef database update --context AppDbContext -s ..\MyApp.Web -- --environment Development
-dotnet ef database update --context ApplicationIdentityDbContext -s ..\MyApp.Web -- --environment Development
+dotnet ef database update --context ApplicationDbContext -s ..\MyApp.Web -- --environment Development
 
 
 
@@ -241,3 +241,14 @@ dotnet ef database update --context ApplicationIdentityDbContext -s ..\MyApp.Web
  dotnet run --environment "Development"
 dotnet watch --environment "Development"
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+
+docker exec -it <new_app-web-1> printenv | grep ASPNETCORE
+docker exec -it <web-1> printenv | grep ASPNETCORE
+
+apa aja yamh akama [asasklaksalkslas ]

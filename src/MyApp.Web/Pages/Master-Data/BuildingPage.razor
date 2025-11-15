@@ -135,6 +135,9 @@
             <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl relative animate-zoom-in">
                 
                 <div class="border-b px-6 py-4 flex justify-between items-center">
+                <div class="absolute inset-0 flex justify-center items-center pointer-events-none">
+                    <img src="assets/images/mock.png" class="max-w-[50%] max-h-[50%] opacity-30" alt="watermark">
+                </div>
                     <h2 class="text-2xl font-bold text-gray-800">@ModalTitle</h2>
                     <button class="text-gray-400 hover:text-gray-600" @onclick="() => ShowModal = false">
                         <i class="fas fa-times fa-lg"></i>
@@ -216,12 +219,12 @@
 
                     <div class="mt-6 flex justify-end gap-3 border-t pt-4">
                         <button type="button" 
-                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-5 py-2 rounded-lg transition flex items-center gap-2"
+                                class="bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2 rounded-lg transition flex items-center gap-2"
                                 @onclick="() => ShowModal = false">
                             <i class="fas fa-ban"></i> Cancel
                         </button>
                         <button type="submit" 
-                                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg transition flex items-center gap-2">
+                                class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg transition flex items-center gap-2">
                             <i class="fas fa-save"></i> Save Building
                         </button>
                     </div>
