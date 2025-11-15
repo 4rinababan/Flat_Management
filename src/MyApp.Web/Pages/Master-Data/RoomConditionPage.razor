@@ -25,6 +25,16 @@
         </div>
     </div>
 
+    <!-- Search Input -->
+    <div class="flex items-center space-x-3 mb-4">
+        <div class="relative w-64">
+            <input value="@searchTerm" @oninput="HandleSearchTermChange"
+                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
+                   placeholder="Search room condition name or details..." />
+            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+        </div>
+    </div>
+
     <div class="overflow-x-auto">
         <table class="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
             <thead class="bg-gradient-to-b from-red-700  to-black">
@@ -47,26 +57,9 @@
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-                @if (RoomConditions == null)
+                @if (PagedRoomConditions.Any())
                 {
-                    <tr>
-                        <td colspan="5" class="text-center p-4">Loading...</td>
-                    </tr>
-                }
-                else if (!RoomConditions.Any())
-                {
-                    <tr>
-                        <td colspan="8" class="p-8">
-                            <div class="flex flex-col items-center justify-center text-gray-400">
-                                <img src="assets/images/empty-data.png" alt="No data" class="h-32 w-32 mb-4" />
-                                <div>No Data</div>
-                            </div>
-                        </td>
-                    </tr>
-                }
-                else
-                {
-                    @foreach (var RoomCondition in RoomConditions)
+                    @foreach (var RoomCondition in PagedRoomConditions)
                     {
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">@RoomCondition.Name</td>
@@ -95,196 +88,262 @@
                         </tr>
                     }
                 }
+                else if (RoomConditions == null)
+                {
+                    <tr>
+                        <td colspan="5" class="text-center p-4">Loading...</td>
+                    </tr>
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="8" class="p-8">
+                            <div class="flex flex-col items-center justify-center text-gray-400">
+                                <img src="assets/images/empty-data.png" alt="No data" class="h-32 w-32 mb-4" />
+                                <div>No Data</div>
+                            </div>
+                        </td>
+                    </tr>
+                }
             </tbody>
         </table>
     </div>
-</div>
 
-<!-- Modal Add/Edit RoomCondition -->
-@if (ShowAddModal)
-{
-    <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 animate-fade-in">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-slide-up">
-            <h3 class="text-xl font-semibold text-gray-800 mb-4">@((NewRoomCondition.Id == 0) ? "Add New RoomCondition" :
-                            "Edit RoomCondition")</h3>
+    @if (FilteredRoomConditions.Any())
+    {
+        <div class="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+            <div class="text-sm text-gray-600">
+                Showing <strong>@((CurrentPage - 1) * PageSize + 1)</strong> to <strong>@(Math.Min(CurrentPage * PageSize, FilteredRoomConditions.Count()))</strong> of <strong>@FilteredRoomConditions.Count()</strong> entries
+            </div>
+            <div class="flex items-center space-x-2">
+                <button class="px-3 py-2 rounded-lg border text-sm @(CurrentPage == 1 ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100")" @onclick="() => ChangePage(CurrentPage - 1)" disabled="@(CurrentPage == 1)">Previous</button>
+                @for (int i = 1; i <= TotalPages; i++)
+                {
+                    var pageNumber = i;
+                    <button class="px-3 py-2 rounded-lg text-sm font-medium @(i == CurrentPage ? "bg-purple-600 text-white" : "bg-white hover:bg-purple-50 border text-gray-700")" @onclick="() => ChangePage(pageNumber)">@i</button>
+                }
+                <button class="px-3 py-2 rounded-lg border text-sm @(CurrentPage == TotalPages ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100")" @onclick="() => ChangePage(CurrentPage + 1)" disabled="@(CurrentPage == TotalPages)">Next</button>
+            </div>
+        </div>
+    }
 
-            <div class="space-y-4">
-                <input @bind="NewRoomCondition.Name" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-purple-500"
-                    placeholder="RoomCondition Name" />
-                <input @bind="NewRoomCondition.Details"
-                    class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-purple-500" placeholder="Details" />
-                <div class="flex items-center space-x-2">
-                    <input type="checkbox" @bind="NewRoomCondition.IsActive" class="h-4 w-4 text-purple-600" />
-                    <label class="text-gray-700">Active</label>
+    <!-- Modal Add/Edit RoomCondition -->
+    @if (ShowAddModal)
+    {
+        <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 animate-fade-in">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-slide-up">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">@((NewRoomCondition.Id == 0) ? "Add New RoomCondition" :
+                                "Edit RoomCondition")</h3>
+
+                <div class="space-y-4">
+                    <input @bind="NewRoomCondition.Name" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-purple-500"
+                        placeholder="RoomCondition Name" />
+                    <input @bind="NewRoomCondition.Details"
+                        class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-purple-500" placeholder="Details" />
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" @bind="NewRoomCondition.IsActive" class="h-4 w-4 text-purple-600" />
+                        <label class="text-gray-700">Active</label>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button class="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg" @onclick="CloseAddModal">Cancel</button>
+                    <button class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
+                        @onclick="SaveNewRoomCondition">
+                        Save
+                    </button>
                 </div>
             </div>
+        </div>
+    }
 
-            <div class="flex justify-end space-x-3 mt-6">
-                <button class="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg" @onclick="CloseAddModal">Cancel</button>
-                <button class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
-                    @onclick="SaveNewRoomCondition">
-                    Save
-                </button>
+    <!-- Modal Confirm Delete -->
+    @if (ShowConfirmModal)
+    {
+        <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 animate-fade-in">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-slide-up">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Confirm Delete</h3>
+                <p class="text-gray-700 mb-6">@ConfirmMessage</p>
+                <div class="flex justify-end space-x-3">
+                    <button class="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg" @onclick="CancelDelete">Cancel</button>
+                    <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+                        @onclick="DeleteConfirmed">Delete</button>
+                </div>
             </div>
         </div>
-    </div>
-}
-
-<!-- Modal Confirm Delete -->
-@if (ShowConfirmModal)
-{
-    <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 animate-fade-in">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-slide-up">
-            <h3 class="text-xl font-semibold text-gray-800 mb-4">Confirm Delete</h3>
-            <p class="text-gray-700 mb-6">@ConfirmMessage</p>
-            <div class="flex justify-end space-x-3">
-                <button class="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg" @onclick="CancelDelete">Cancel</button>
-                <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
-                    @onclick="DeleteConfirmed">Delete</button>
-            </div>
-        </div>
-    </div>
-}
-
-<ToastContainer @ref="toastContainer" />
-
-@code {
-    private bool CanView = false;
-    private bool CanCreate = false;
-    private bool CanUpdate = false;
-    private bool CanDelete = false;
-    
-    private ToastContainer? toastContainer;
-    private List<RoomCondition>? RoomConditions;
-    private bool ShowAddModal = false;
-    private RoomCondition NewRoomCondition = new RoomCondition();
-    private bool ShowConfirmModal = false;
-    private int RoomConditionIdToDelete;
-    private string ConfirmMessage = "";
-
-    protected override async Task OnInitializedAsync()
-    {
-        // Check permissions first
-        CanView = await PermissionService.HasPermissionAsync("room-condition", "view");
-        if (!CanView)
-        {
-            NavigationManager.NavigateTo("/unauthorized");
-            return;
-        }
-
-        CanCreate = await PermissionService.HasPermissionAsync("room-condition", "create");
-        CanUpdate = await PermissionService.HasPermissionAsync("room-condition", "update");
-        CanDelete = await PermissionService.HasPermissionAsync("room-condition", "delete");
-
-        // Load data only if user has view permission
-        await LoadData();
     }
 
-    private void ShowAddRoomConditionModal()
-    {
-        if (!CanCreate)
+    <ToastContainer @ref="toastContainer" />
+
+    @code {
+        private bool CanView = false;
+        private bool CanCreate = false;
+        private bool CanUpdate = false;
+        private bool CanDelete = false;
+        
+        private ToastContainer? toastContainer;
+        private List<RoomCondition>? RoomConditions;
+        private bool ShowAddModal = false;
+        private RoomCondition NewRoomCondition = new RoomCondition();
+        private bool ShowConfirmModal = false;
+        private int RoomConditionIdToDelete;
+        private string ConfirmMessage = "";
+
+        // Pagination & Search
+        private string searchTerm = string.Empty;
+        private const int PageSize = 10;
+        private int CurrentPage = 1;
+
+        private IEnumerable<RoomCondition> FilteredRoomConditions =>
+            string.IsNullOrWhiteSpace(searchTerm)
+            ? RoomConditions ?? Enumerable.Empty<RoomCondition>()
+            : (RoomConditions ?? Enumerable.Empty<RoomCondition>()).Where(r =>
+                (r.Name ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                (r.Details ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            );
+
+        private int TotalPages => (int)Math.Ceiling(FilteredRoomConditions.Count() / (double)PageSize);
+
+        private IEnumerable<RoomCondition> PagedRoomConditions => FilteredRoomConditions.Skip((CurrentPage - 1) * PageSize).Take(PageSize);
+
+        protected override async Task OnInitializedAsync()
         {
-            ToastService.ShowError("You don't have permission to add new room conditions");
-            return;
-        }
+            // Check permissions first
+            CanView = await PermissionService.HasPermissionAsync("room-condition", "view");
+            if (!CanView)
+            {
+                NavigationManager.NavigateTo("/unauthorized");
+                return;
+            }
 
-        NewRoomCondition = new RoomCondition();
-        ShowAddModal = true;
-    }
+            CanCreate = await PermissionService.HasPermissionAsync("room-condition", "create");
+            CanUpdate = await PermissionService.HasPermissionAsync("room-condition", "update");
+            CanDelete = await PermissionService.HasPermissionAsync("room-condition", "delete");
 
-    private void CloseAddModal()
-    {
-        ShowAddModal = false;
-    }
-
-    private void EditRoomCondition(RoomCondition roomCondition)
-    {
-        if (!CanUpdate)
-        {
-            ToastService.ShowError("You don't have permission to edit room conditions");
-            return;
-        }
-
-        NewRoomCondition = new RoomCondition
-        {
-            Id = roomCondition.Id,
-            Name = roomCondition.Name,
-            Details = roomCondition.Details,
-            IsActive = roomCondition.IsActive
-        };
-        ShowAddModal = true;
-    }
-
-    private void ConfirmDelete(int id, string name)
-    {
-        if (!CanDelete)
-        {
-            ToastService.ShowError("You don't have permission to delete room conditions");
-            return;
-        }
-
-        RoomConditionIdToDelete = id;
-        ConfirmMessage = $"Are you sure you want to delete the Room Condition \"{name}\"?";
-        ShowConfirmModal = true;
-    }
-
-    private async Task DeleteConfirmed()
-    {
-        if (!CanDelete)
-        {
-            ToastService.ShowError("You don't have permission to delete room conditions");
-            return;
-        }
-
-        await RoomConditionService.DeleteAsync(RoomConditionIdToDelete);
-        await LoadData();
-        ShowConfirmModal = false;
-        ToastService.ShowSuccess("Success deleted!");
-    }
-
-    private void CancelDelete()
-    {
-        ShowConfirmModal = false;
-    }
-
-    private async Task SaveNewRoomCondition()
-    {
-        if (NewRoomCondition.Id == 0 && !CanCreate)
-        {
-            ToastService.ShowError("You don't have permission to create new room conditions");
-            return;
-        }
-        else if (NewRoomCondition.Id != 0 && !CanUpdate)
-        {
-            ToastService.ShowError("You don't have permission to update room conditions");
-            return;
-        }
-
-        try
-        {
-            if (NewRoomCondition.Id == 0)
-                await RoomConditionService.AddAsync(NewRoomCondition);
-            else
-                await RoomConditionService.UpdateAsync(NewRoomCondition);
-
+            // Load data only if user has view permission
             await LoadData();
-            NewRoomCondition = new RoomCondition();
-            ShowAddModal = false;
-            ToastService.ShowSuccess("Data Saved!");
         }
-        catch (Exception ex)
+
+        private void ShowAddRoomConditionModal()
         {
-            ToastService.ShowError($"Error: {ex.Message}");
+            if (!CanCreate)
+            {
+                ToastService.ShowError("You don't have permission to add new room conditions");
+                return;
+            }
+
+            NewRoomCondition = new RoomCondition();
+            ShowAddModal = true;
+        }
+
+        private void CloseAddModal()
+        {
+            ShowAddModal = false;
+        }
+
+        private void EditRoomCondition(RoomCondition roomCondition)
+        {
+            if (!CanUpdate)
+            {
+                ToastService.ShowError("You don't have permission to edit room conditions");
+                return;
+            }
+
+            NewRoomCondition = new RoomCondition
+            {
+                Id = roomCondition.Id,
+                Name = roomCondition.Name,
+                Details = roomCondition.Details,
+                IsActive = roomCondition.IsActive
+            };
+            ShowAddModal = true;
+        }
+
+        private void ConfirmDelete(int id, string name)
+        {
+            if (!CanDelete)
+            {
+                ToastService.ShowError("You don't have permission to delete room conditions");
+                return;
+            }
+
+            RoomConditionIdToDelete = id;
+            ConfirmMessage = $"Are you sure you want to delete the Room Condition \"{name}\"?";
+            ShowConfirmModal = true;
+        }
+
+        private async Task DeleteConfirmed()
+        {
+            if (!CanDelete)
+            {
+                ToastService.ShowError("You don't have permission to delete room conditions");
+                return;
+            }
+
+            await RoomConditionService.DeleteAsync(RoomConditionIdToDelete);
+            await LoadData();
+            ShowConfirmModal = false;
+            ToastService.ShowSuccess("Success deleted!");
+        }
+
+        private void CancelDelete()
+        {
+            ShowConfirmModal = false;
+        }
+
+        private async Task SaveNewRoomCondition()
+        {
+            if (NewRoomCondition.Id == 0 && !CanCreate)
+            {
+                ToastService.ShowError("You don't have permission to create new room conditions");
+                return;
+            }
+            else if (NewRoomCondition.Id != 0 && !CanUpdate)
+            {
+                ToastService.ShowError("You don't have permission to update room conditions");
+                return;
+            }
+
+            try
+            {
+                if (NewRoomCondition.Id == 0)
+                    await RoomConditionService.AddAsync(NewRoomCondition);
+                else
+                    await RoomConditionService.UpdateAsync(NewRoomCondition);
+
+                await LoadData();
+                NewRoomCondition = new RoomCondition();
+                ShowAddModal = false;
+                ToastService.ShowSuccess("Data Saved!");
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError($"Error: {ex.Message}");
+            }
+        }
+
+        private async Task LoadData()
+        {
+            RoomConditions = await RoomConditionService.GetAllAsync();
+        }
+
+        private string GetStatusClasses(bool isActive) =>
+        isActive
+        ? "inline-flex px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"
+        : "inline-flex px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800";
+
+        private void HandleSearchTermChange(ChangeEventArgs e)
+        {
+            searchTerm = e.Value?.ToString() ?? string.Empty;
+            CurrentPage = 1;
+        }
+
+        private void ChangePage(int page)
+        {
+            if (page >= 1 && page <= TotalPages)
+            {
+                CurrentPage = page;
+            }
         }
     }
-
-    private async Task LoadData()
-    {
-        RoomConditions = await RoomConditionService.GetAllAsync();
-    }
-
-    private string GetStatusClasses(bool isActive) =>
-    isActive
-    ? "inline-flex px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"
-    : "inline-flex px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800";
-}
+</div>

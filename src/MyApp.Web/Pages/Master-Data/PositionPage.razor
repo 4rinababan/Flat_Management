@@ -24,6 +24,16 @@
         </div>
     </div>
 
+    <!-- Search Input -->
+    <div class="flex items-center space-x-3 mb-4">
+        <div class="relative w-64">
+            <input value="@searchTerm" @oninput="HandleSearchTermChange"
+                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
+                   placeholder="Search position name, department, or level..." />
+            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+        </div>
+    </div>
+
     <div class="overflow-x-auto">
         <table class="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
             <thead class="bg-gradient-to-b from-red-700  to-black">
@@ -39,26 +49,9 @@
                 </tr>
             </thead>
             <tbody class="bg-gray divide-y divide-gray-200">
-                @if (Positions == null)
+                @if (PagedPositions.Any())
                 {
-                    <tr>
-                        <td colspan="5" class="text-center p-4">Loading...</td>
-                    </tr>
-                }
-                else if (!Positions.Any())
-                {
-                    <tr>
-                            <td colspan="8" class="p-8">
-                                <div class="flex flex-col items-center justify-center text-gray-400">
-                                    <img src="assets/images/empty-data.png" alt="No data" class="h-32 w-32 mb-4" />
-                                    <div>No Data</div>
-                                </div>
-                            </td>
-                        </tr>
-                }
-                else
-                {
-                    @foreach (var position in Positions)
+                    @foreach (var position in PagedPositions)
                     {
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">@position.Name</td>
@@ -91,9 +84,44 @@
                         </tr>
                     }
                 }
+                else if (Positions == null)
+                {
+                    <tr>
+                        <td colspan="5" class="text-center p-4">Loading...</td>
+                    </tr>
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="8" class="p-8">
+                            <div class="flex flex-col items-center justify-center text-gray-400">
+                                <img src="assets/images/empty-data.png" alt="No data" class="h-32 w-32 mb-4" />
+                                <div>No Data</div>
+                            </div>
+                        </td>
+                    </tr>
+                }
             </tbody>
         </table>
     </div>
+
+    @if (FilteredPositions.Any())
+    {
+        <div class="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+            <div class="text-sm text-gray-600">
+                Showing <strong>@((CurrentPage - 1) * PageSize + 1)</strong> to <strong>@(Math.Min(CurrentPage * PageSize, FilteredPositions.Count()))</strong> of <strong>@FilteredPositions.Count()</strong> entries
+            </div>
+            <div class="flex items-center space-x-2">
+                <button class="px-3 py-2 rounded-lg border text-sm @(CurrentPage == 1 ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100")" @onclick="() => ChangePage(CurrentPage - 1)" disabled="@(CurrentPage == 1)">Previous</button>
+                @for (int i = 1; i <= TotalPages; i++)
+                {
+                    var pageNumber = i;
+                    <button class="px-3 py-2 rounded-lg text-sm font-medium @(i == CurrentPage ? "bg-purple-600 text-white" : "bg-white hover:bg-purple-50 border text-gray-700")" @onclick="() => ChangePage(pageNumber)">@i</button>
+                }
+                <button class="px-3 py-2 rounded-lg border text-sm @(CurrentPage == TotalPages ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100")" @onclick="() => ChangePage(CurrentPage + 1)" disabled="@(CurrentPage == TotalPages)">Next</button>
+            </div>
+        </div>
+    }
 </div>
 
 <!-- Modal Add/Edit Position -->
@@ -157,6 +185,24 @@
     private bool CanCreate = false;
     private bool CanUpdate = false;
     private bool CanDelete = false;
+
+    // Pagination & Search
+    private string searchTerm = string.Empty;
+    private const int PageSize = 10;
+    private int CurrentPage = 1;
+
+    private IEnumerable<Position> FilteredPositions =>
+        string.IsNullOrWhiteSpace(searchTerm)
+        ? Positions ?? Enumerable.Empty<Position>()
+        : (Positions ?? Enumerable.Empty<Position>()).Where(p =>
+            (p.Name ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            (p.Department ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            (p.Level ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+        );
+
+    private int TotalPages => (int)Math.Ceiling(FilteredPositions.Count() / (double)PageSize);
+
+    private IEnumerable<Position> PagedPositions => FilteredPositions.Skip((CurrentPage - 1) * PageSize).Take(PageSize);
 
     protected override async Task OnInitializedAsync()
     {
@@ -286,4 +332,18 @@
         isActive
         ? "inline-flex px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"
         : "inline-flex px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800";
+
+    private void HandleSearchTermChange(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        CurrentPage = 1;
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= TotalPages)
+        {
+            CurrentPage = page;
+        }
+    }
 }

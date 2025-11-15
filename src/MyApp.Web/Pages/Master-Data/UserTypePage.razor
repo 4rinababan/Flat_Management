@@ -24,6 +24,16 @@
         </div>
     </div>
 
+    <!-- Search Input -->
+    <div class="flex items-center space-x-3 mb-4">
+        <div class="relative w-64">
+            <input value="@searchTerm" @oninput="HandleSearchTermChange"
+                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
+                   placeholder="Search user type name or details..." />
+            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+        </div>
+    </div>
+
     <div class="overflow-x-auto">
          <table class="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
             <thead class="bg-gradient-to-b from-red-700  to-black">
@@ -46,13 +56,13 @@
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-                @if (UserTypes == null)
+                @if (PagedUserTypes == null)
                 {
                     <tr>
                         <td colspan="5" class="text-center p-4">Loading...</td>
                     </tr>
                 }
-                else if (!UserTypes.Any())
+                else if (!PagedUserTypes.Any())
                 {
                     <tr>
                         <td colspan="8" class="p-8">
@@ -65,7 +75,7 @@
                 }
                 else
                 {
-                    @foreach (var UserType in UserTypes)
+                    @foreach (var UserType in PagedUserTypes)
                     {
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">@UserType.TypeName</td>
@@ -100,6 +110,24 @@
             </tbody>
         </table>
     </div>
+
+    @if (FilteredUserTypes.Any())
+    {
+        <div class="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+            <div class="text-sm text-gray-600">
+                Showing <strong>@((CurrentPage - 1) * PageSize + 1)</strong> to <strong>@(Math.Min(CurrentPage * PageSize, FilteredUserTypes.Count()))</strong> of <strong>@FilteredUserTypes.Count()</strong> entries
+            </div>
+            <div class="flex items-center space-x-2">
+                <button class="px-3 py-2 rounded-lg border text-sm @(CurrentPage == 1 ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100")" @onclick="() => ChangePage(CurrentPage - 1)" disabled="@(CurrentPage == 1)">Previous</button>
+                @for (int i = 1; i <= TotalPages; i++)
+                {
+                    var pageNumber = i;
+                    <button class="px-3 py-2 rounded-lg text-sm font-medium @(i == CurrentPage ? "bg-purple-600 text-white" : "bg-white hover:bg-purple-50 border text-gray-700")" @onclick="() => ChangePage(pageNumber)">@i</button>
+                }
+                <button class="px-3 py-2 rounded-lg border text-sm @(CurrentPage == TotalPages ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100")" @onclick="() => ChangePage(CurrentPage + 1)" disabled="@(CurrentPage == TotalPages)">Next</button>
+            </div>
+        </div>
+    }
 </div>
 
 <!-- Modal Add/Edit UserType -->
@@ -162,6 +190,37 @@
     private bool CanCreate = false;
     private bool CanUpdate = false;
     private bool CanDelete = false;
+
+    // Pagination & Search
+    private string searchTerm = string.Empty;
+    private const int PageSize = 10;
+    private int CurrentPage = 1;
+
+    private IEnumerable<UserType> FilteredUserTypes =>
+        string.IsNullOrWhiteSpace(searchTerm)
+        ? UserTypes ?? Enumerable.Empty<UserType>()
+        : (UserTypes ?? Enumerable.Empty<UserType>()).Where(u =>
+            (u.TypeName ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            (u.Details ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+        );
+
+    private int TotalPages => (int)Math.Ceiling(FilteredUserTypes.Count() / (double)PageSize);
+
+    private IEnumerable<UserType> PagedUserTypes => FilteredUserTypes.Skip((CurrentPage - 1) * PageSize).Take(PageSize);
+
+    private void HandleSearchTermChange(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        CurrentPage = 1;
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= TotalPages)
+        {
+            CurrentPage = page;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

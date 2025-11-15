@@ -66,7 +66,7 @@
         <!-- Hide Add Employee button if no create permission -->
         <div class="flex items-center space-x-3 mt-4 md:mt-0 w-full md:w-auto">
             <div class="relative w-full md:w-64">
-                <input value="@SearchTerm" @oninput="e => SearchTerm = e.Value?.ToString() ?? string.Empty"
+                <input value="@SearchTerm" @oninput="HandleSearchTermChange"
                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
                        placeholder="Search Employee..." />
                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
@@ -95,9 +95,9 @@
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-                @if (FilteredEmployees != null)
+                @if (PagedEmployees.Any())
                 {
-                    @foreach (var Employee in FilteredEmployees)
+                    @foreach (var Employee in PagedEmployees)
                     {
                         <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-6 py-4 whitespace-nowrap">
@@ -147,6 +147,15 @@
                         </tr>
                     }
                 }
+                else if (Employees == null)
+                {
+                    <tr>
+                        <td colspan="8" class="py-12 text-center text-gray-400">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <p class="text-lg">No Employees found.</p>
+                        </td>
+                    </tr>
+                }
                 else
                 {
                     <tr>
@@ -159,6 +168,29 @@
             </tbody>
         </table>
     </div>
+
+    @if (FilteredEmployees.Any())
+    {
+        <div class="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+            <div class="text-sm text-gray-600">
+                Showing <strong>@((CurrentPage - 1) * PageSize + 1)</strong>
+                to <strong>@(Math.Min(CurrentPage * PageSize, FilteredEmployees.Count()))</strong>
+                of <strong>@FilteredEmployees.Count()</strong> entries
+            </div>
+            <div class="flex items-center space-x-2">
+                <button class="px-3 py-2 rounded-lg border text-sm @(CurrentPage == 1 ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100")"
+                        @onclick="() => ChangePage(CurrentPage - 1)" disabled="@(CurrentPage == 1)">Previous</button>
+                @for (int i = 1; i <= TotalPages; i++)
+                {
+                    var pageNumber = i;
+                    <button class="px-3 py-2 rounded-lg text-sm font-medium @(i == CurrentPage ? "bg-purple-600 text-white" : "bg-white hover:bg-purple-50 border text-gray-700")"
+                            @onclick="() => ChangePage(pageNumber)">@i</button>
+                }
+                <button class="px-3 py-2 rounded-lg border text-sm @(CurrentPage == TotalPages ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100")"
+                        @onclick="() => ChangePage(CurrentPage + 1)" disabled="@(CurrentPage == TotalPages)">Next</button>
+            </div>
+        </div>
+    }
 </div>
 
 <!-- Modal Add/Edit/Detail -->
@@ -620,6 +652,27 @@
         catch (Exception ex)
         {
             ToastService.ShowError($"Error: {ex.Message}");
+        }
+    }
+
+    // Pagination & Search
+    private const int PageSize = 10;
+    private int CurrentPage = 1;
+
+    private IEnumerable<Employee> PagedEmployees => FilteredEmployees.Skip((CurrentPage - 1) * PageSize).Take(PageSize);
+    private int TotalPages => (int)Math.Ceiling(FilteredEmployees.Count() / (double)PageSize);
+
+    private void HandleSearchTermChange(ChangeEventArgs e)
+    {
+        SearchTerm = e.Value?.ToString() ?? string.Empty;
+        CurrentPage = 1;
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= TotalPages)
+        {
+            CurrentPage = page;
         }
     }
 }
