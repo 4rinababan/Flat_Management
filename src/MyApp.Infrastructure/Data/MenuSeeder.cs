@@ -19,19 +19,8 @@ namespace MyApp.Infrastructure.Data
                 // Seed default system settings
                 await SeedDefaultSystemSettings(context);
 
-                // Check if menus already exist
-                var existingMenus = await context.Menus.AnyAsync();
-                if (existingMenus)
-                {
-                    Console.WriteLine("Menus already exist, checking permissions...");
-                    await SeedPermissionsAsync(context, roleManager);
-                    return;
-                }
-
-                Console.WriteLine("Starting menu seeding...");
-
-                // Seed parent menus
-                var menus = new List<Menu>
+                // Prepare all menu seeders
+                var allMenusToSeed = new List<Menu>
                 {
                     new() { Code = "dashboard", Name = "Dashboard", IconName = "layout-dashboard", Color = "text-yellow-400", Url = "/dashboard", Order = 1 },
                     new() { Code = "administration", Name = "Administration", IconName = "users", Color = "text-blue-400", Order = 2 },
@@ -48,116 +37,118 @@ namespace MyApp.Infrastructure.Data
                     new() { Code = "data-care", Name = "Data Care", IconName = "folder-open", Color = "text-amber-400", Order = 13 }
                 };
 
-                await context.Menus.AddRangeAsync(menus);
-                await context.SaveChangesAsync();
-                Console.WriteLine("Parent menus seeded successfully");
+                // Get existing menu codes from DB
+                var existingMenuCodes = await context.Menus.Select(m => m.Code).ToListAsync();
 
-                // Add submenus - Occupants Management
-                var occupantsParent = await context.Menus.FirstAsync(m => m.Code == "occupants-management");
-                var occupantsSubmenus = new List<Menu>
+                // Find missing parent menus
+                var missingMenus = allMenusToSeed.Where(m => !existingMenuCodes.Contains(m.Code)).ToList();
+                if (missingMenus.Any())
                 {
-                    new() { Code = "occupants", Name = "Occupants", IconName = "calendar", Color = "text-teal-400", Url = "/occupants", Order = 1, ParentId = occupantsParent.Id },
-                    new() { Code = "history", Name = "Histories", IconName = "calendar", Color = "text-teal-400", Url = "/occupant-history", Order = 2, ParentId = occupantsParent.Id }
-                };
-                await context.Menus.AddRangeAsync(occupantsSubmenus);
+                    await context.Menus.AddRangeAsync(missingMenus);
+                    await context.SaveChangesAsync();
+                }
 
-                // Add submenus - Weapon Management
-                var waeponParent = await context.Menus.FirstAsync(m => m.Code == "weapon-management");
-                var weaponSubmenus = new List<Menu>
+                // Submenus seeder logic
+                async Task SeedSubmenus(string parentCode, List<Menu> submenus)
                 {
-                    new() { Code = "weapons", Name = "Weapons", IconName = "calendar", Color = "text-teal-400", Url = "/weapons", Order = 1, ParentId = waeponParent.Id },
-                    new() { Code = "weapons-assignment", Name = "Weapon Assignment", IconName = "calendar", Color = "text-teal-400", Url = "/weapons/assignment", Order = 2, ParentId = waeponParent.Id },
-                };
-                await context.Menus.AddRangeAsync(weaponSubmenus);
+                    var parent = await context.Menus.FirstOrDefaultAsync(m => m.Code == parentCode);
+                    if (parent == null) return;
+                    var existingSubCodes = await context.Menus.Where(m => m.ParentId == parent.Id).Select(m => m.Code).ToListAsync();
+                    var missingSubs = submenus.Where(m => !existingSubCodes.Contains(m.Code)).ToList();
+                    foreach (var sub in missingSubs)
+                    {
+                        sub.ParentId = parent.Id;
+                    }
+                    if (missingSubs.Any())
+                    {
+                        await context.Menus.AddRangeAsync(missingSubs);
+                        await context.SaveChangesAsync();
+                    }
+                }
 
-                // Add submenus - Weapon Management
-                var alsusParent = await context.Menus.FirstAsync(m => m.Code == "alsus-management");
-                var alsusSubmenus = new List<Menu>
+                // Occupants Management
+                await SeedSubmenus("occupants-management", new List<Menu>
                 {
-                    new() { Code = "alsus", Name = "Alsus", IconName = "calendar", Color = "text-teal-400", Url = "/alsus", Order = 1, ParentId = alsusParent.Id },
-                    new() { Code = "alsus-assignment", Name = "Alsus Assignment", IconName = "calendar", Color = "text-teal-400", Url = "/alsus/assignment", Order = 2, ParentId = alsusParent.Id },
-                };
-                await context.Menus.AddRangeAsync(alsusSubmenus);
+                    new() { Code = "occupants", Name = "Occupants", IconName = "calendar", Color = "text-teal-400", Url = "/occupants", Order = 1 },
+                    new() { Code = "history", Name = "Histories", IconName = "calendar", Color = "text-teal-400", Url = "/occupant-history", Order = 2 }
+                });
 
-                // Add submenus - Menu Management
-                var administrationParent = await context.Menus.FirstAsync(m => m.Code == "administration");
-                var administrationSubmenus = new List<Menu>
+                // Weapon Management
+                await SeedSubmenus("weapon-management", new List<Menu>
                 {
-                    new() { Code = "users", Name = "Users", IconName = "users", Color = "text-teal-400", Url = "/users", Order = 1, ParentId = administrationParent.Id },
-                    new() { Code = "role-permissions", Name = "Roles & Permissions", IconName = "shield", Color = "text-teal-400", Url = "/role-permission", Order = 2, ParentId = administrationParent.Id },
-                    new() { Code = "menu-list", Name = "Module List", IconName = "clipboard-list", Color = "text-teal-400", Url = "/menu-list", Order = 3, ParentId = administrationParent.Id },
-                    new() { Code = "system-settings", Name = "System Settings", IconName = "cogs", Color = "text-teal-400", Url = "/system-settings", Order = 4, ParentId = administrationParent.Id },
-                };
-                await context.Menus.AddRangeAsync(administrationSubmenus);
+                    new() { Code = "weapons", Name = "Weapons", IconName = "calendar", Color = "text-teal-400", Url = "/weapons", Order = 1 },
+                    new() { Code = "weapons-assignment", Name = "Weapon Assignment", IconName = "calendar", Color = "text-teal-400", Url = "/weapons/assignment", Order = 2 }
+                });
 
-                // Add submenus - Access Control Management
-                var accessControlParent = await context.Menus.FirstAsync(m => m.Code == "access-control");
-                var accessControlSubmenus = new List<Menu>
+                // Alsus Management
+                await SeedSubmenus("alsus-management", new List<Menu>
                 {
-                    new() { Code = "handle-locks", Name = "Handle Lock Access", IconName = "shield", Color = "text-teal-400", Url = "/access-control/handle-locks", Order = 1, ParentId = accessControlParent.Id },
-                    new() { Code = "gates", Name = "Gate Access", IconName = "shield", Color = "text-teal-400", Url = "/access-control/gates", Order = 2, ParentId = accessControlParent.Id }
-                };
-                await context.Menus.AddRangeAsync(accessControlSubmenus);
+                    new() { Code = "alsus", Name = "Alsus", IconName = "calendar", Color = "text-teal-400", Url = "/alsus", Order = 1 },
+                    new() { Code = "alsus-assignment", Name = "Alsus Assignment", IconName = "calendar", Color = "text-teal-400", Url = "/alsus/assignment", Order = 2 }
+                });
 
-                // Add submenus - Data Management
-                var dataParent = await context.Menus.FirstAsync(m => m.Code == "data-care");
-                var dataSubmenus = new List<Menu>
+                // Administration
+                await SeedSubmenus("administration", new List<Menu>
                 {
-                    new() { Code = "backup-data", Name = "Backup", IconName = "user-check", Color = "text-teal-400", Url = "/data-care/backup-data", Order = 1, ParentId = dataParent.Id },
-                    new() { Code = "restore-data", Name = "Restore", IconName = "calendar", Color = "text-teal-400", Url = "/data-care/restore-data", Order = 2, ParentId = dataParent.Id }
-                };
-                await context.Menus.AddRangeAsync(dataSubmenus);
+                    new() { Code = "users", Name = "Users", IconName = "users", Color = "text-teal-400", Url = "/users", Order = 1 },
+                    new() { Code = "role-permissions", Name = "Roles & Permissions", IconName = "shield", Color = "text-teal-400", Url = "/role-permission", Order = 2 },
+                    new() { Code = "menu-list", Name = "Module List", IconName = "clipboard-list", Color = "text-teal-400", Url = "/menu-list", Order = 3 },
+                    new() { Code = "system-settings", Name = "System Settings", IconName = "cogs", Color = "text-teal-400", Url = "/system-settings", Order = 4 }
+                });
 
-
-                // Add submenus - Visitors Management
-                var visitorsParent = await context.Menus.FirstAsync(m => m.Code == "visitors-management");
-                var visitorsSubmenus = new List<Menu>
+                // Access Control
+                await SeedSubmenus("access-control", new List<Menu>
                 {
-                    new() { Code = "visitors", Name = "Visitors", IconName = "user-check", Color = "text-teal-400", Url = "/visitors", Order = 1, ParentId = visitorsParent.Id },
-                    new() { Code = "visitor-analytics", Name = "Analytics", IconName = "calendar", Color = "text-teal-400", Url = "/visitor-analytics", Order = 2, ParentId = visitorsParent.Id }
-                };
-                await context.Menus.AddRangeAsync(visitorsSubmenus);
+                    new() { Code = "handle-locks", Name = "Handle Lock Access", IconName = "shield", Color = "text-teal-400", Url = "/access-control/handle-locks", Order = 1 },
+                    new() { Code = "gates", Name = "Gate Access", IconName = "shield", Color = "text-teal-400", Url = "/access-control/gates", Order = 2 }
+                });
 
-                // Add submenus - Building Management
-                var buildingParent = await context.Menus.FirstAsync(m => m.Code == "building-management");
-                var buildingSubmenus = new List<Menu>
+                // Data Care
+                await SeedSubmenus("data-care", new List<Menu>
                 {
-                    new() { Code = "buildings", Name = "Building", IconName = "building", Color = "text-teal-400", Url = "/master-data/buildings", Order = 1, ParentId = buildingParent.Id },
-                    new() { Code = "rooms", Name = "Rooms", IconName = "settings", Color = "text-pink-400", Url = "/rooms", Order = 2, ParentId = buildingParent.Id },
-                    new() { Code = "maintenance-requests", Name = "Maintenance Requests", IconName = "clipboard-list", Color = "text-teal-400", Url = "/maintenance-requests", Order = 3, ParentId = buildingParent.Id },
-                    new() { Code = "vendors", Name = "Vendors", IconName = "truck", Color = "text-teal-400", Url = "/vendors", Order = 4, ParentId = buildingParent.Id }
-                };
-                await context.Menus.AddRangeAsync(buildingSubmenus);
+                    new() { Code = "backup-data", Name = "Backup", IconName = "user-check", Color = "text-teal-400", Url = "/data-care/backup-data", Order = 1 },
+                    new() { Code = "restore-data", Name = "Restore", IconName = "calendar", Color = "text-teal-400", Url = "/data-care/restore-data", Order = 2 }
+                });
 
-                // Add submenus - Inventory Management
-                var inventoryParent = await context.Menus.FirstAsync(m => m.Code == "inventory-management");
-                var inventorySubmenus = new List<Menu>
+                // Visitors Management
+                await SeedSubmenus("visitors-management", new List<Menu>
                 {
-                    new() { Code = "inventories", Name = "Inventories", IconName = "package", Color = "text-teal-400", Url = "/inventories", Order = 1, ParentId = inventoryParent.Id },
-                    new() { Code = "inventory-checks", Name = "Request Item", IconName = "clipboard-list", Color = "text-teal-400", Url = "/inventory-checks", Order = 2, ParentId = inventoryParent.Id },
-                    new() { Code = "inventory-reports", Name = "Histories", IconName = "clipboard-list", Color = "text-teal-400", Url = "/inventory-reports", Order = 3, ParentId = inventoryParent.Id }
-                };
-                await context.Menus.AddRangeAsync(inventorySubmenus);
+                    new() { Code = "visitors", Name = "Visitors", IconName = "user-check", Color = "text-teal-400", Url = "/visitors", Order = 1 },
+                    new() { Code = "visitor-analytics", Name = "Analytics", IconName = "calendar", Color = "text-teal-400", Url = "/visitor-analytics", Order = 2 }
+                });
 
-                // Add submenus - Master Data
-                var masterDataParent = await context.Menus.FirstAsync(m => m.Code == "master-data");
-                var masterDataSubmenus = new List<Menu>
+                // Building Management
+                await SeedSubmenus("building-management", new List<Menu>
                 {
-                    new() { Code = "position", Name = "Position", IconName = "briefcase", Color = "text-teal-400", Url = "/master-data/position", Order = 1, ParentId = masterDataParent.Id },
-                    new() { Code = "role", Name = "Role", IconName = "shield", Color = "text-teal-400", Url = "/master-data/role", Order = 2, ParentId = masterDataParent.Id },
-                    new() { Code = "user-type", Name = "User Type", IconName = "user-circle", Color = "text-teal-400", Url = "/master-data/user-type", Order = 3, ParentId = masterDataParent.Id },
-                    new() { Code = "rank", Name = "Rank", IconName = "rank", Color = "text-teal-400", Url = "/master-data/rank", Order = 4, ParentId = masterDataParent.Id },
-                    new() { Code = "room-category", Name = "Room Category", IconName = "building", Color = "text-teal-400", Url = "/master-data/room-category", Order = 5, ParentId = masterDataParent.Id },
-                    new() { Code = "room-status", Name = "Room Status", IconName = "building", Color = "text-teal-400", Url = "/master-data/room-status", Order = 6, ParentId = masterDataParent.Id },
-                    new() { Code = "room-condition", Name = "Room Condition", IconName = "building", Color = "text-teal-400", Url = "/master-data/room-condition", Order = 7, ParentId = masterDataParent.Id },
-                    new() { Code = "inventory-type", Name = "Inventory Type", IconName = "user-circle", Color = "text-teal-400", Url = "/master-data/inventory-type", Order = 8, ParentId = masterDataParent.Id }
-                };
-                await context.Menus.AddRangeAsync(masterDataSubmenus);
-                await context.SaveChangesAsync();
+                    new() { Code = "buildings", Name = "Building", IconName = "building", Color = "text-teal-400", Url = "/master-data/buildings", Order = 1 },
+                    new() { Code = "rooms", Name = "Rooms", IconName = "settings", Color = "text-pink-400", Url = "/rooms", Order = 2 },
+                    new() { Code = "maintenance-requests", Name = "Maintenance Requests", IconName = "clipboard-list", Color = "text-teal-400", Url = "/maintenance-requests", Order = 3 },
+                    new() { Code = "vendors", Name = "Vendors", IconName = "truck", Color = "text-teal-400", Url = "/vendors", Order = 4 }
+                });
+
+                // Inventory Management
+                await SeedSubmenus("inventory-management", new List<Menu>
+                {
+                    new() { Code = "inventories", Name = "Inventories", IconName = "package", Color = "text-teal-400", Url = "/inventories", Order = 1 },
+                    new() { Code = "inventory-checks", Name = "Request Item", IconName = "clipboard-list", Color = "text-teal-400", Url = "/inventory-checks", Order = 2 },
+                    new() { Code = "inventory-reports", Name = "Histories", IconName = "clipboard-list", Color = "text-teal-400", Url = "/inventory-reports", Order = 3 }
+                });
+
+                // Master Data
+                await SeedSubmenus("master-data", new List<Menu>
+                {
+                    new() { Code = "position", Name = "Position", IconName = "briefcase", Color = "text-teal-400", Url = "/master-data/position", Order = 1 },
+                    new() { Code = "role", Name = "Role", IconName = "shield", Color = "text-teal-400", Url = "/master-data/role", Order = 2 },
+                    new() { Code = "user-type", Name = "User Type", IconName = "user-circle", Color = "text-teal-400", Url = "/master-data/user-type", Order = 3 },
+                    new() { Code = "rank", Name = "Rank", IconName = "rank", Color = "text-teal-400", Url = "/master-data/rank", Order = 4 },
+                    new() { Code = "room-category", Name = "Room Category", IconName = "building", Color = "text-teal-400", Url = "/master-data/room-category", Order = 5 },
+                    new() { Code = "room-status", Name = "Room Status", IconName = "building", Color = "text-teal-400", Url = "/master-data/room-status", Order = 6 },
+                    new() { Code = "room-condition", Name = "Room Condition", IconName = "building", Color = "text-teal-400", Url = "/master-data/room-condition", Order = 7 },
+                    new() { Code = "inventory-type", Name = "Inventory Type", IconName = "user-circle", Color = "text-teal-400", Url = "/master-data/inventory-type", Order = 8 }
+                });
 
                 // Seed permissions for all roles
                 await SeedPermissionsAsync(context, roleManager);
-
             }
             catch (Exception ex)
             {
@@ -203,7 +194,7 @@ namespace MyApp.Infrastructure.Data
         }
 
         private static async Task SeedPermissionsAsync(
-            AppDbContext context, 
+            AppDbContext context,
             RoleManager<IdentityRole<int>> roleManager)
         {
             try
@@ -215,7 +206,7 @@ namespace MyApp.Infrastructure.Data
                 var adminRole = await roleManager.FindByNameAsync("Admin");
                 if (adminRole != null)
                 {
-                    
+
                     // Check if Admin already has permissions
                     var existingAdminPermissions = await context.MenuPermissions
                         .Where(mp => mp.RoleId == adminRole.Id)
@@ -252,7 +243,7 @@ namespace MyApp.Infrastructure.Data
                 var managerRole = await roleManager.FindByNameAsync("Manager");
                 if (managerRole != null)
                 {
-                    
+
                     // Check if Manager already has permissions
                     var existingManagerPermissions = await context.MenuPermissions
                         .Where(mp => mp.RoleId == managerRole.Id)
