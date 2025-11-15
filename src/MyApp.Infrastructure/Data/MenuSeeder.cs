@@ -99,7 +99,10 @@ namespace MyApp.Infrastructure.Data
                 await SeedSubmenus("access-control", new List<Menu>
                 {
                     new() { Code = "handle-locks", Name = "Handle Lock Access", IconName = "shield", Color = "text-teal-400", Url = "/access-control/handle-locks", Order = 1 },
-                    new() { Code = "gates", Name = "Gate Access", IconName = "shield", Color = "text-teal-400", Url = "/access-control/gates", Order = 2 }
+                    new() { Code = "gates", Name = "Gate Access", IconName = "shield", Color = "text-teal-400", Url = "/access-control/gates", Order = 2 },
+                     new() { Code = "intercom", Name = "Intercom", IconName = "shield", Color = "text-teal-400", Url = "/access-control/intercom", Order = 3 },
+                    new() { Code = "door-access", Name = "Door Access", IconName = "shield", Color = "text-teal-400", Url = "/access-control/door-access", Order = 4 },
+                    new() { Code = "face", Name = "Face Recognition", IconName = "shield", Color = "text-teal-400", Url = "/access-control/face", Order = 5}
                 });
 
                 // Data Care

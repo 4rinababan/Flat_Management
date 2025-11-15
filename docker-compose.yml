@@ -2,13 +2,22 @@ version: "3.9"
 
 services:
   web:
+    container_name: myapp_web
     build: .
     ports:
       - "5050:8080"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://0.0.0.0:8080
-      - DB_HOST=host.docker.internal
-      - DB_PORT=3306
-      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://0.0.0.0:8080"
+
+      # DATABASE CONFIG
+      DB_HOST: "host.docker.internal"
+      DB_PORT: "3306"
+      DB_USER: "root"
+      DB_PASS: "@nt!Terror88"
+
+      ConnectionStrings__DefaultConnection: "server=host.docker.internal;port=3306;database=myappdb;user=root;password=@nt!Terror88;AllowUserVariables=True;"
+
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

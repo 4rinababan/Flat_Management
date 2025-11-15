@@ -76,16 +76,20 @@ public class EKeyDto
     public DateTime? CreateDate { get; set; }
 }
 
+// Di file terpisah, atau di bagian atas kelas DTO/Model Anda
+
 public class PasscodeDto
 {
     public long PasscodeId { get; set; }
     public long LockId { get; set; }
-    public string KeyboardPwd { get; set; } = "";
-    public string PwdName { get; set; } = "";
-    public string SenderUsername { get; set; } = "";
+    public string KeyboardPwd { get; set; } = string.Empty; // Passcode (kode itu sendiri)
+    public string KeyboardPwdName { get; set; } = string.Empty; // Nama Passcode (dikenal sebagai PwdName di kode Service Anda)
+    public int KeyboardPwdType { get; set; }
+    public long IsCustom { get; set; }
+    public string SenderUsername { get; set; } = string.Empty;
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
-    public DateTime? CreateDate { get; set; }
+    public DateTime? SendDate { get; set; } // Tanggal dibuat
 }
 
 public class RecordDto

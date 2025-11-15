@@ -1,0 +1,88 @@
+@page "/access-control/intercom"
+@using System.Net
+@using System.Net.Http
+@inject ToastService ToastService
+
+<div class="intercom-container">
+    <h2 class="title">Access Door Control</h2>
+
+    <div class="intercom-grid">
+        @foreach (var device in devices)
+        {
+            <div class="intercom-card">
+                <div class="circle-button @(device.IsClicked ? "clicked" : "")"
+                     @onclick="@(() => OpenDoor(device))">
+                    <span>@device.DisplayText</span>
+                </div>
+                <div class="intercom-label">@device.Ip</div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    public class IntercomDevice
+    {
+        public string Ip { get; set; } = default!;
+        public bool IsClicked { get; set; }
+        public string DisplayText { get; set; } = "Tap to Open";
+    }
+
+    private List<IntercomDevice> devices = new()
+    {
+        new IntercomDevice { Ip = "192.168.10.241" },
+        new IntercomDevice { Ip = "192.168.10.242" },
+        new IntercomDevice { Ip = "192.168.10.243" },
+        new IntercomDevice { Ip = "192.168.10.244" }
+    };
+
+    private async Task OpenDoor(IntercomDevice device)
+    {
+        device.IsClicked = true;
+        device.DisplayText = "Opening...";
+        StateHasChanged();
+
+        string username = "admin";
+        string password = "admin123";
+
+        var handler = new HttpClientHandler
+        {
+            PreAuthenticate = true,
+            Credentials = new NetworkCredential(username, password)
+        };
+
+        using var client = new HttpClient(handler);
+        client.Timeout = TimeSpan.FromSeconds(5);
+
+        try
+        {
+            var openDoorUrl = $"http://{device.Ip}/cgi-bin/accessControl.cgi?action=openDoor&channel=1";
+            var response = await client.GetAsync(openDoorUrl);
+            string result = await response.Content.ReadAsStringAsync();
+
+            if (result.Contains("OK", StringComparison.OrdinalIgnoreCase))
+            {
+                device.DisplayText = "✅ Opened!";
+                device.DisplayText = "Tap to Open";
+                await ToastService.ShowSuccess($"Door {device.Ip} opened successfully!");
+            }
+            else
+            {
+                device.DisplayText = "⚠️ Failed";
+                device.DisplayText = "Tap to Open";
+                await ToastService.ShowError($"Failed to open door {device.Ip}. Response: {result}");
+            }
+        }
+        catch (Exception ex)
+        {
+            device.DisplayText = "❌ Error";
+            device.DisplayText = "Tap to Open";
+            await ToastService.ShowError($"Error opening door {device.Ip}: {ex.Message}");
+        }
+
+        //await Task.Delay(2000);
+        device.IsClicked = false;
+        
+        StateHasChanged();
+    }
+}

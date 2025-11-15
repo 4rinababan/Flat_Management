@@ -109,7 +109,7 @@ public class DeviceService
         return list;
     }
 
-    // ==============================
+     // ==============================
     // Fingerprints
     // ==============================
     public async Task<List<FingerprintDto>> GetFingerprintsAsync(long lockId)
@@ -138,8 +138,29 @@ public class DeviceService
         return list;
     }
 
-    public async Task DeleteFingerprintAsync(long lockId, long fpId)
-        => await _ttLock.DeleteFingerprintAsync(lockId, fpId);
+    public async Task<bool> AddFingerprintAsync(long lockId, string fingerprintNumber, string fingerprintName)
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        var json = await _ttLock.AddFingerprintAsync(
+            lockId,
+            fingerprintNumber,
+            fingerprintType: 1,
+            fingerprintName,
+            startDate: 0,
+            endDate: 0
+        );
+
+        // Kalau berhasil, TTLock akan kirim fingerprintId
+        if (json.RootElement.TryGetProperty("fingerprintId", out var id))
+            return id.GetInt32() > 0;
+
+        return false;
+    }
+
+    public async Task DeleteFingerprintAsync(long lockId, long fingerprintId)
+        => await _ttLock.DeleteFingerprintAsync(lockId, fingerprintId);
+
 
     // ==============================
     // eKeys, Passcodes, Records
@@ -174,6 +195,56 @@ public class DeviceService
         return await _ttLock.RenameLockAsync(lockId, newAlias);
     }
 
+
+    // ==============================
+    // Passcode Management
+    // ==============================
+    public async Task<TTLockResponse> ChangePasscodeAsync(
+        long lockId, 
+        long keyboardPwdId, 
+        string? keyboardPwdName = null, 
+        string? newKeyboardPwd = null, 
+        DateTime? newStartDate = null, 
+        DateTime? newEndDate = null, 
+        int changeType = 2)
+    {
+        long? startTimestamp = newStartDate.HasValue 
+            ? new DateTimeOffset(newStartDate.Value).ToUnixTimeMilliseconds() 
+            : null;
+            
+        long? endTimestamp = newEndDate.HasValue 
+            ? new DateTimeOffset(newEndDate.Value).ToUnixTimeMilliseconds() 
+            : null;
+
+        try
+        {
+            return await _ttLock.ChangePasscodeAsync(
+                lockId,
+                keyboardPwdId,
+                keyboardPwdName,
+                newKeyboardPwd,
+                startTimestamp,
+                endTimestamp,
+                changeType
+            );
+        }
+        catch (Exception ex)
+        {
+            return new TTLockResponse { ErrCode = -1, ErrMsg = $"Error: {ex.Message}" };
+        }
+    }
+
+    public async Task<bool> RenamePasscodeAsync(long lockId, long keyboardPwdId, string newName)
+    {
+        var response = await ChangePasscodeAsync(lockId, keyboardPwdId, keyboardPwdName: newName, changeType: 2);
+        return response.ErrCode == 0;
+    }
+
+    public async Task<bool> UpdatePasscodeCodeAsync(long lockId, long keyboardPwdId, string newCode)
+    {
+        var response = await ChangePasscodeAsync(lockId, keyboardPwdId, newKeyboardPwd: newCode, changeType: 2);
+        return response.ErrCode == 0;
+    }
     public async Task<List<PasscodeDto>> GetPasscodesAsync(long lockId, int pageNo = 1, int pageSize = 20)
     {
         var doc = await _ttLock.GetPasscodesAsync(lockId, pageNo, pageSize);
@@ -188,11 +259,13 @@ public class DeviceService
                     PasscodeId = item.GetPropertyOrDefault("keyboardPwdId", 0L),
                     LockId = item.GetPropertyOrDefault("lockId", 0L),
                     KeyboardPwd = item.GetPropertyOrDefault("keyboardPwd", string.Empty),
-                    PwdName = item.GetPropertyOrDefault("pwdName", string.Empty),
+                    KeyboardPwdName = item.GetPropertyOrDefault("keyboardPwdName", string.Empty),
+                    KeyboardPwdType = item.GetPropertyOrDefault("keyboardPwdType", 0),
+                    IsCustom = item.GetPropertyOrDefault("isCustom", 0L),
                     SenderUsername = item.GetPropertyOrDefault("senderUsername", string.Empty),
                     StartDate = item.GetDateTimeFromUnix("startDate"),
                     EndDate = item.GetDateTimeFromUnix("endDate"),
-                    CreateDate = item.GetDateTimeFromUnix("createDate")
+                    SendDate = item.GetDateTimeFromUnix("sendDate")
                 });
             }
         }

@@ -139,6 +139,41 @@ public class TTLockClient
             ["orderBy"] = "1"
         });
 
+    // Di dalam kelas TTLockClient
+    public async Task<TTLockResponse> ChangePasscodeAsync(
+        long lockId, 
+        long keyboardPwdId, 
+        string? keyboardPwdName = null, 
+        string? newKeyboardPwd = null, 
+        long? startDate = null, 
+        long? endDate = null,
+        int changeType = 2) // Default ke 2 (via gateway/WiFi lock)
+    {
+        if (string.IsNullOrEmpty(_accessToken))
+            throw new Exception("Belum ada access token! Jalankan AuthAsync dulu.");
+
+        var extraData = new Dictionary<string, string>
+        {
+            { "lockId", lockId.ToString() },
+            { "keyboardPwdId", keyboardPwdId.ToString() },
+            { "changeType", changeType.ToString() }
+        };
+
+        if (keyboardPwdName != null) extraData["keyboardPwdName"] = keyboardPwdName;
+        if (newKeyboardPwd != null) extraData["newKeyboardPwd"] = newKeyboardPwd;
+        if (startDate.HasValue) extraData["startDate"] = startDate.Value.ToString();
+        if (endDate.HasValue) extraData["endDate"] = endDate.Value.ToString();
+
+        var json = await PostV3Async("keyboardPwd/change", extraData);
+        var root = json.RootElement;
+
+        return new TTLockResponse
+        {
+            ErrCode = root.GetProperty("errcode").GetInt32(),
+            ErrMsg = root.GetProperty("errmsg").GetString()
+        };
+    }
+
     public async Task<JsonDocument> GetRecordsAsync(long lockId, int pageNo = 1, int pageSize = 100)
         => await GetV3Async("lockRecord/list", new()
         {
@@ -237,17 +272,18 @@ public class TTLockClient
         => await PostV3Async("fingerprint/list", new() { { "lockId", lockId.ToString() } });
 
     public async Task<JsonDocument> AddFingerprintAsync(long lockId, string fingerprintNumber, int fingerprintType,
-        string fingerprintName, long startDate, long endDate)
-        => await PostV3Async("fingerprint/add", new()
-        {
-            {"lockId", lockId.ToString()},
-            {"fingerprintNumber", fingerprintNumber},
-            {"fingerprintType", fingerprintType.ToString()},
-            {"fingerprintName", fingerprintName},
-            {"startDate", startDate.ToString()},
-            {"endDate", endDate.ToString()},
-            {"date", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString()}
-        });
+    string fingerprintName, long startDate, long endDate)
+    => await PostV3Async("fingerprint/add", new()
+    {
+        {"lockId", lockId.ToString()},
+        {"fingerprintNumber", fingerprintNumber},
+        {"fingerprintType", fingerprintType.ToString()},
+        {"fingerprintName", fingerprintName},
+        {"startDate", startDate.ToString()},
+        {"endDate", endDate.ToString()},
+        {"date", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString()}
+    });
+
 
     public async Task<JsonDocument> DeleteFingerprintAsync(long lockId, long fingerprintId)
     {

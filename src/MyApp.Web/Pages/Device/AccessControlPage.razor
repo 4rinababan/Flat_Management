@@ -5,7 +5,7 @@
 @inject DeviceService DeviceService
 @inject IJSRuntime JS
 @inject ToastService ToastService
-@using MyApp.Web.Pages.Device 
+@using MyApp.Web.Pages.Device
 
 
 <h3 class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-100">Access Control</h3>
@@ -53,7 +53,6 @@ else
 
         <div class="@cardBg border border-gray-700/40 rounded-xl shadow-md hover:shadow-lg hover:scale-[1.01] transition-all duration-300 ease-out p-4 flex flex-col text-white">
 
-            <!-- Battery + Settings -->
             <div class="flex justify-between items-center mb-2">
                 <div class="@batteryColor flex items-center gap-1 p-1 px-2 rounded-full bg-gray-900/40 text-xs font-medium">
                     <i class="fas fa-battery-half"></i> @device.ElectricQuantity%
@@ -64,7 +63,6 @@ else
                 </button>
             </div>
 
-            <!-- Icon + Info -->
             <div class="text-center mb-3">
                 <div class="bg-gradient-to-b from-gray-700/40 to-gray-800/40 p-2 rounded-xl inline-block mb-2">
                     <img src="assets/images/smart-lock.png" alt="Smart Lock" class="w-12 h-12 opacity-90" />
@@ -73,7 +71,6 @@ else
                 <p class="text-[11px] text-gray-400">ID: @device.LockId</p>
             </div>
 
-            <!-- Kode Kunci -->
             <div class="bg-gray-700/30 rounded-lg p-2 mb-3 text-sm flex items-center justify-center gap-2">
                 <i class="fas fa-key text-yellow-500"></i>
                 <span class="font-mono">@device.NoKeyPwd</span>
@@ -84,10 +81,7 @@ else
                 </button>
             </div>
 
-            
-            <!-- Tombol Aksi -->
             <div class="flex flex-col gap-1 mt-auto">
-                <!-- Baris 1: Unlock & Lock -->
                 <div class="flex justify-between gap-2">
                     <button class="flex-1 flex items-center justify-center gap-1.5 bg-emerald-600/90 hover:bg-emerald-500 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 hover:shadow-md active:scale-95"
                             @onclick="() => UnlockDevice(device.LockId)">
@@ -102,14 +96,12 @@ else
                     </button>
                 </div>
 
-                <!-- Baris 2 -->
                 <button class="flex items-center justify-center gap-1.5 bg-indigo-600/90 hover:bg-indigo-500 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 w-full hover:shadow-md active:scale-95"
                         @onclick="() => OpenIdentityModal(device.LockId, device.LockAlias)">
                     <i class="fas fa-users-cog text-sm"></i>
                     <span>Manage Access</span>
                 </button>
 
-                <!-- Baris 3 -->
                 <button class="flex items-center justify-center gap-1.5 bg-violet-600/90 hover:bg-violet-500 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 w-full hover:shadow-md active:scale-95"
                         @onclick="() => OpenRecordsModal(device.LockId)">
                     <i class="fas fa-history text-sm"></i>
@@ -122,7 +114,6 @@ else
 
 
     <div class="flex justify-center mt-8 gap-3">
-        <!-- Tombol Prev -->
         <button 
             class="@GetButtonClass(_currentPage == 1)"
             @onclick="PrevPage"
@@ -131,12 +122,10 @@ else
             <span>Prev</span>
         </button>
 
-        <!-- Info Halaman -->
         <span class="px-3 py-2 text-gray-700 dark:text-gray-300 font-medium select-none">
             Page @_currentPage of @_totalPages
         </span>
 
-        <!-- Tombol Next -->
         <button 
             class="@GetButtonClass(_currentPage == _totalPages)"
             @onclick="NextPage"
@@ -181,12 +170,12 @@ else
 @if (showRecordsModal)
 {
     <div class="fixed inset-0 bg-black/70 flex items-center justify-center z-[100]">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 w-11/12 max-w-4xl shadow-2xl animate-fadeIn overflow-auto max-h-[80vh] text-gray-800 dark:text-gray-100">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 w-11/12 max-w-4xl shadow-2xl animate-fadeIn overflow-auto max-h-[80vh] text-gray-800 dark:text-gray-100 flex flex-col">
             <h3 class="text-xl font-bold mb-4">Lock Records - ID: @selectedRecordLockId</h3>
 
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto flex-grow">
                 <table class="min-w-full table-auto border border-gray-300 dark:border-gray-700 text-sm text-left">
-                    <thead class="bg-gray-200 dark:bg-gray-700">
+                    <thead class="bg-gray-200 dark:bg-gray-700 sticky top-0">
                         <tr>
                             <th class="px-3 py-2 border">Type Code</th>
                             <th class="px-3 py-2 border">User</th>
@@ -203,7 +192,7 @@ else
                         }
                         else
                         {
-                            @foreach (var record in lockRecords)
+                            @foreach (var record in pagedLockRecords) 
                             {
                                 <tr class="hover:bg-gray-100 dark:hover:bg-gray-700">
                                     <td class="px-3 py-2 border">@record.RecordType</td>
@@ -215,6 +204,32 @@ else
                         }
                     </tbody>
                 </table>
+            </div>
+            
+            <div class="flex justify-between items-center mt-4">
+                <p class="text-xs text-gray-500 dark:text-gray-400">Total Records: @lockRecords.Count</p>
+
+                <div class="flex items-center gap-3">
+                    <button 
+                        class="@GetButtonClass(_currentRecordPage == 1)"
+                        @onclick="PrevRecordPage"
+                        disabled="@(_currentRecordPage == 1)">
+                        <i class="fas fa-chevron-left text-xs"></i>
+                        <span>Prev</span>
+                    </button>
+
+                    <span class="px-3 py-2 text-gray-700 dark:text-gray-300 font-medium select-none text-sm">
+                        Page @_currentRecordPage of @_totalRecordPages
+                    </span>
+
+                    <button 
+                        class="@GetButtonClass(_currentRecordPage == _totalRecordPages)"
+                        @onclick="NextRecordPage"
+                        disabled="@(_currentRecordPage == _totalRecordPages)">
+                        <span>Next</span>
+                        <i class="fas fa-chevron-right text-xs"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="flex justify-end mt-4">
@@ -272,6 +287,7 @@ else
     private List<ICCardDto> cards = new();
     private List<FingerprintDto> fingerprints = new();
 
+    // Pagination for devices
     private int _currentPage = 1;
     private readonly int _pageSize = 12;
     private int _totalPages = 1;
@@ -289,6 +305,12 @@ else
     private bool showRecordsModal = false;
     private long selectedRecordLockId;
     private List<RecordDto> lockRecords = new();
+    
+    // Pagination for records
+    private int _currentRecordPage = 1;
+    private readonly int _recordPageSize = 10; // Ukuran halaman untuk records
+    private int _totalRecordPages = 1;
+    private List<RecordDto> pagedLockRecords = new();
 
     // References to Child Components
     private AccessControlSettingsModal settingsModal = default!;
@@ -300,7 +322,7 @@ else
         await DeviceService.AuthAsync();
         devices = await DeviceService.GetDevicesAsync();
         UpdatePagination();
-        await LoadCardsAndFingerprints();
+        //await LoadCardsAndFingerprints();
     }
 
     private async Task CopyToClipboard(int noKeyPwd, Microsoft.AspNetCore.Components.Web.MouseEventArgs e)
@@ -504,9 +526,11 @@ else
         selectedRecordLockId = lockId;
         showRecordsModal = true;
         lockRecords = new List<RecordDto>(); // Clear previous records
+        pagedLockRecords = new List<RecordDto>();
 
         try
         {
+            // Ambil semua records untuk lockId ini
             lockRecords = await DeviceService.GetRecordsAsync(lockId);
         }
         catch (Exception ex)
@@ -514,14 +538,61 @@ else
             ToastService.ShowError($"Failed to load records: {ex.Message}");
             lockRecords = new List<RecordDto>();
         }
+        
+        // Inisialisasi pagination records
+        UpdateRecordPagination();
 
         StateHasChanged();
     }
+    
+    // Logic Pagination Records
+    private void UpdateRecordPagination()
+    {
+        if (lockRecords == null) return;
+
+        // Hitung total halaman
+        _totalRecordPages = (int)Math.Ceiling(lockRecords.Count / (double)_recordPageSize);
+        _totalRecordPages = Math.Max(1, _totalRecordPages); // Pastikan minimal 1 halaman
+
+        // Sesuaikan halaman saat ini jika melebihi total halaman
+        _currentRecordPage = Math.Min(_currentRecordPage, _totalRecordPages);
+        _currentRecordPage = Math.Max(_currentRecordPage, 1); // Pastikan minimal halaman 1
+
+        // Ambil data untuk halaman saat ini
+        pagedLockRecords = lockRecords
+            .Skip((_currentRecordPage - 1) * _recordPageSize)
+            .Take(_recordPageSize)
+            .ToList();
+
+        StateHasChanged();
+    }
+
+    private void NextRecordPage()
+    {
+        if (_currentRecordPage < _totalRecordPages)
+        {
+            _currentRecordPage++;
+            UpdateRecordPagination();
+        }
+    }
+
+    private void PrevRecordPage()
+    {
+        if (_currentRecordPage > 1)
+        {
+            _currentRecordPage--;
+            UpdateRecordPagination();
+        }
+    }
+    // End Logic Pagination Records
 
     private void CloseRecordsModal()
     {
         showRecordsModal = false;
         lockRecords.Clear();
+        pagedLockRecords.Clear();
+        _currentRecordPage = 1;
+        _totalRecordPages = 1;
     }
 
     private string GetAccessTypeMeaning(string recordType)

@@ -16,6 +16,8 @@ using MyApp.Infrastructure.Services;
 using MyApp.Web.Authentication;
 using MyApp.Web.Data;
 using MyApp.Web.Helpers;
+using MyApp.Web.Device.Service;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -102,7 +104,7 @@ builder.Services.AddScoped<AuthenticationStateProvider>(provider =>
     provider.GetRequiredService<CustomAuthenticationStateProvider>());
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IPermissionService, AccountPermissionModules>();
-
+builder.Services.AddScoped<AccessDoorApiService>();
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<ToastService>();

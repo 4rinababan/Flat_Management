@@ -1,0 +1,218 @@
+@* File: CardManagementModal.razor (PERBAIKAN) *@
+@using MyApp.Web.Device.Model
+@using MyApp.Web.Device.Service
+@inject AccessDoorApiService ApiService 
+@* BARIS DI BAWAH INI TELAH DIHAPUS/DIKOMENTARI KARENA MENGAKIBATKAN INJEKSI GANDA DAN AMBIGUITAS *@
+@* @inject IJSRuntime JSRuntime @ Menginjeksikan kembali IJSRuntime di sini *@
+
+<div class="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+    <div class="relative bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg mx-auto">
+        
+        <h3 class="text-2xl font-bold text-gray-800 mb-4">
+            Manage Cards for **@DeviceAlias** (#@DeviceId)
+        </h3>
+        
+        @if (isLoading)
+        {
+            <p class="text-blue-500"><i class="fas fa-spinner fa-spin mr-2"></i> Loading device details...</p>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="p-3 my-2 text-red-700 bg-red-100 bg-opacity-50 border border-red-200 rounded-lg"><p>Error: @errorMessage</p></div>
+        }
+        else if (deviceDetail != null)
+        {
+            <div class="space-y-4">
+                
+                @* Card Input Form *@
+                <div class="border p-4 rounded-lg">
+                    <label for="newCardId" class="block text-sm font-medium text-gray-700">New Card ID:</label>
+                    <div class="mt-1 flex space-x-2">
+                        <input type="number" id="newCardId" @bind="newCardId" placeholder="e.g., 123456" 
+                               class="flex-grow p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                               disabled="@isProcessing" /> @* Tambahkan disabled *@
+                        <button @onclick="AddCard" disabled="@(newCardId <= 0 || isProcessing)"
+                                class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
+                            <i class="fas fa-plus mr-1"></i> Add
+                        </button>
+                    </div>
+                </div>
+
+                @* List of Existing Cards (Menggunakan properti 'Cards' yang telah diperbaiki) *@
+                <h4 class="text-lg font-semibold text-gray-700 mt-6">Existing Cards (@(deviceDetail.Cards?.Count ?? 0))</h4>
+                <div class="max-h-64 overflow-y-auto border rounded-lg p-3 bg-gray-50">
+                    @if (deviceDetail.Cards?.Any() == true)
+                    {
+                        <ul class="divide-y divide-gray-200">
+                            @foreach (var cardId in deviceDetail.Cards!)
+                            {
+                                <li class="py-2 flex justify-between items-center text-sm">
+                                    <span>Card ID: **@cardId**</span>
+                                    <button @onclick="() => RemoveCard(cardId)" disabled="@isProcessing"
+                                            class="text-red-600 hover:text-red-800 transition text-xs">
+                                        <i class="fas fa-trash-alt mr-1"></i> Remove
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-gray-500 italic">No cards currently synchronized on this device.</p>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="mt-6 flex justify-end space-x-3">
+            <button @onclick="RefreshCards" disabled="@isProcessing"
+                    class="px-4 py-2 text-sm text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition">
+                <i class="fas fa-sync mr-1"></i> Sync/Refresh
+            </button>
+            <button @onclick="OnClose" class="px-4 py-2 text-sm bg-gray-200 rounded-lg hover:bg-gray-300 transition" disabled="@isProcessing"> @* Tambahkan disabled *@
+                Close
+            </button>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    [Parameter] public int DeviceId { get; set; }
+    [Parameter] public string DeviceAlias { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!; @* INJEKSI HANYA DI SINI *@
+
+    private DeviceDetailDto? deviceDetail;
+    private bool isLoading = true;
+    private bool isProcessing = false;
+    private string? errorMessage;
+    private int newCardId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Memastikan LoadDeviceDetail dipanggil setiap kali DeviceId berubah (modal dibuka)
+        await LoadDeviceDetail();
+    }
+
+    private async Task LoadDeviceDetail()
+    {
+        isLoading = true;
+        isProcessing = true; // Block UI saat memuat
+        errorMessage = null;
+        deviceDetail = null;
+
+        try
+        {
+            var detail = await ApiService.GetDeviceDetailAsync(DeviceId);
+            
+            if (detail != null)
+            {
+                deviceDetail = detail;
+            }
+            else
+            {
+                errorMessage = $"Failed to load details for device {DeviceId}. The API returned null.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred while loading details: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            isProcessing = false;
+        }
+    }
+
+    private async Task AddCard()
+    {
+        if (newCardId <= 0) 
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Please enter a valid Card ID (greater than 0).");
+            return;
+        }
+        
+        isProcessing = true;
+        try
+        {
+            var success = await ApiService.AddCardAsync(DeviceId, newCardId);
+
+            if (success)
+            {
+                var tempCardId = newCardId;
+                newCardId = 0; // Clear input
+                await LoadDeviceDetail(); 
+                await JSRuntime.InvokeVoidAsync("alert", $"Card {tempCardId} added successfully.");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Failed to add card {newCardId}. Check device connectivity or API response.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error adding card: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task RemoveCard(int cardId)
+    {
+        isProcessing = true;
+        try
+        {
+            var success = await ApiService.RemoveCardAsync(DeviceId, cardId);
+
+            if (success)
+            {
+                await LoadDeviceDetail(); 
+                await JSRuntime.InvokeVoidAsync("alert", $"Card {cardId} removed successfully.");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Failed to remove card {cardId}. Check device connectivity or API response.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error removing card: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task RefreshCards()
+    {
+        isProcessing = true;
+        try
+        {
+            var success = await ApiService.RefreshCardsAsync(DeviceId);
+
+            if (success)
+            {
+                await LoadDeviceDetail(); 
+                await JSRuntime.InvokeVoidAsync("alert", $"Card synchronization command sent to device {DeviceId}.");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Failed to send synchronization command to device {DeviceId}.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error refreshing cards: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+}

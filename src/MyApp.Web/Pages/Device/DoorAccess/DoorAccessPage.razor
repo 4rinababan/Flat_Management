@@ -1,0 +1,168 @@
+@page "/access-control/door-access"
+@using MyApp.Web.Device.Model
+@using MyApp.Web.Device.Service
+@inject AccessDoorApiService ApiService
+@inject IJSRuntime JSRuntime
+
+<div class="p-6 bg-gray-50 min-h-screen">
+    <h1 class="text-3xl font-extrabold text-gray-900 mb-6 flex items-center">
+        <i class="fas fa-lock-open text-blue-600 mr-3"></i> Access Control Panel
+    </h1>
+
+    <div class="flex justify-between items-center mb-6">
+        <button class="flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition"
+                @onclick="LoadDevices" disabled="@isLoading">
+            <i class="fas fa-sync-alt mr-2"></i> @(isLoading ? "Loading..." : "Refresh Devices")
+        </button>
+        <span class="text-sm text-gray-500">Total Devices: **@devices.Count**</span>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="p-4 mb-6 text-red-700 bg-red-100 border border-red-200 rounded-lg">
+            <p><strong>Error:</strong> @errorMessage</p>
+        </div>
+    }
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        @if (isLoading)
+        {
+            @* Simple loading placeholder *@
+            @for (int i = 0; i < 4; i++)
+            {
+                <div class="bg-white rounded-xl shadow-lg p-5 animate-pulse border border-gray-200 h-64">
+                    <div class="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
+                    <div class="space-y-2">
+                        <div class="h-3 bg-gray-200 rounded w-full"></div>
+                        <div class="h-3 bg-gray-200 rounded w-5/6"></div>
+                    </div>
+                    <div class="flex border-t border-gray-100 mt-8 pt-4">
+                        <div class="h-8 bg-blue-300 rounded w-full"></div>
+                    </div>
+                </div>
+            }
+        }
+        else if (devices.Any())
+        {
+            @foreach (var device in devices)
+            {
+                <DoorDeviceCard Device="device"
+                    OnOpenDoor="() => OpenDoor(device.Id)"
+                    OnManageCards="() => OpenCardModal(device.Id, device.Alias)"
+                    OnToggleBypass="() => ToggleBypass(device.Id, device.Settings?.Bypass.GetValueOrDefault() ?? false)"
+                    OnToggleBypassLock="() => ToggleBypassLock(device.Id, device.Settings?.BypassLock.GetValueOrDefault() ?? false)" />
+            }
+
+        }
+        else
+        {
+            <p class="text-gray-500 italic col-span-4">No devices found or API is inaccessible.</p>
+        }
+    </div>
+</div>
+
+@if (showCardModal)
+{
+    <CardManagementModal DeviceId="selectedDeviceId" DeviceAlias="selectedDeviceAlias" OnClose="CloseCardModal" />
+}
+
+@code {
+    private List<DeviceSummaryDto> devices = new();
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    // State untuk Modal
+    private bool showCardModal;
+    private int selectedDeviceId;
+    private string selectedDeviceAlias = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDevices();
+    }
+
+    private async Task LoadDevices()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        var result = await ApiService.GetDevicesAsync();
+        Console.WriteLine($"✅ Loaded devices: {result?.Count}");
+        foreach (var d in result ?? [])
+            Console.WriteLine($" - {d.Id}: {d.Alias} ({d.Status})");
+        
+        if (result != null)
+        {
+            devices = result;
+        }
+        else
+        {
+            // Jika API mengembalikan null atau error
+            errorMessage = "Failed to fetch device data. Check API service connection.";
+            devices = new List<DeviceSummaryDto>();
+        }
+        
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task OpenDoor(int deviceId)
+    {
+        var success = await ApiService.OpenDoorAsync(deviceId);
+        await JSRuntime.InvokeVoidAsync("alert", success 
+            ? $"Command OPEN sent to Device {deviceId}" 
+            : $"Failed to send OPEN command to Device {deviceId}");
+        await LoadDevices();
+    }
+
+    private async Task ToggleBypass(int deviceId, bool isCurrentlyEnabled) 
+        => await HandleToggle(deviceId, isCurrentlyEnabled, true);
+
+    private async Task ToggleBypassLock(int deviceId, bool isCurrentlyEnabled) 
+        => await HandleToggle(deviceId, isCurrentlyEnabled, false);
+
+    // *Refaktor: Local function untuk menangani logic toggle yang berulang.*
+    private async Task HandleToggle(int deviceId, bool isCurrentlyEnabled, bool isBypass)
+    {
+        string toggleType = isBypass ? "Bypass" : "Bypass Lock";
+        string action = isCurrentlyEnabled ? "disable" : "enable";
+        
+        Task<bool> apiTask = isBypass 
+            ? ApiService.BypassDoorAsync(deviceId, action) 
+            : ApiService.BypassLockAsync(deviceId, action);
+
+        var success = await apiTask;
+
+        await JSRuntime.InvokeVoidAsync("alert", success 
+            ? $"{toggleType} {action} command sent to Device {deviceId}." 
+            : $"Failed to send {toggleType} {action} command to Device {deviceId}.");
+
+        if (success) await LoadDevices();
+    }
+
+    // --- Modal Handlers ---
+
+    private void OpenCardModal(int deviceId, string alias)
+    {
+        selectedDeviceId = deviceId;
+        selectedDeviceAlias = alias;
+        showCardModal = true;
+        StateHasChanged();
+    }
+
+    private async Task CloseCardModal()
+    {
+        showCardModal = false;
+        await LoadDevices(); 
+    }
+
+    private void ManageCards(int deviceId, string alias)
+    {
+        selectedDeviceId = deviceId;
+        selectedDeviceAlias = alias;
+        showCardModal = true;
+        StateHasChanged();
+    }
+
+}
